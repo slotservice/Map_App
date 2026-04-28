@@ -119,6 +119,10 @@ Append-only. Each entry: `YYYY-MM-DD — actor — action`.
 * `2026-04-29` — Andrew — extracted full legacy API surface (11 endpoints, base `https://crushtheworld.com/api/`) into `legacy/api_surface.md`; live-verified `/login`, `/mapList`, `/mapDetail/:id` with real worker creds.
 * `2026-04-29` — Andrew — documented APK manifest, permissions, activities, dependencies, and 6 security findings in `legacy/manifest_summary.md`; flagged critical issues (debug build, SSL validation disabled via `NuckSSLCerts.nuke()`, plaintext worker password in SharedPreferences, leaked Google Maps API key, login response leaks bcrypt hash).
 * `2026-04-29` — Awaiting — client/user to upload `legacy/public_html.zip` and `legacy/db_dump.sql` so the legacy DB schema can be confirmed and the migration script written.
+* `2026-04-29` — User — uploaded `legacy/public_html.zip` (1.63 GB) and `legacy/postitri_storemanage.sql` (2.6 MB).
+* `2026-04-29` — Andrew — extracted Laravel source (931 KB sans vendor/storage); discovered the legacy backend is **Laravel 7 + AdminLTE 3** (not raw PHP) and that **the full backend source is intact** — only the Android source was lost. Documented the confirmed 9-table schema, all 11 controller methods, and 12 newly-found backend bugs in `legacy/legacy_schema.md`.
+* `2026-04-29` — Andrew — bootstrapped the monorepo at `https://github.com/slotservice/Map_App` (initial commit `9fd978c`). Phase-0 deliverables (PROJECT_STATUS, REBUILD_PLAN, legacy/* docs) and folder skeleton (apps/api, apps/admin, apps/mobile, packages/shared, infra/migration) pushed to `main`. No feature code yet — Phase-1 implementation begins after escrow funding confirmation.
+* `2026-04-29` — Awaiting — client confirmation that Freelancer.com escrow is funded; user confirmation to begin Phase-1 monorepo scaffolding (NestJS API + Next.js admin + Expo mobile).
 
 ---
 
