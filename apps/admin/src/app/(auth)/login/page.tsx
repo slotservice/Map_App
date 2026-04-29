@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth';
+import { friendlyError } from '@/lib/friendly-error';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,8 +21,7 @@ export default function LoginPage() {
       await login(email, password);
       router.replace('/maps');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Login failed';
-      setError(msg);
+      setError(await friendlyError(err));
     } finally {
       setLoading(false);
     }
