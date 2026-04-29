@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
-  MarkerColor,
+  computeMarkerColor,
   type FinalizePhotoRequest,
   type PresignUploadRequest,
   type PresignUploadResponse,
@@ -130,28 +130,9 @@ export class StoresService {
     // Object intentionally retained in storage; lifecycle reaps orphans.
   }
 
-  // Computed marker colour. See REBUILD_PLAN Appendix E.
-  private computeMarker(
-    tasks: Array<{ initialStatus: TaskStatus; currentStatus: TaskStatus }>,
-    hasCompletion: boolean,
-  ): MarkerColor {
-    if (tasks.length === 0) return MarkerColor.BLUE;
-    const allComplete = tasks.every((t) => t.currentStatus === TaskStatus.SCHEDULED_OR_COMPLETE);
-    if (allComplete && hasCompletion) return MarkerColor.RED;
-
-    const allInitiallyNeedsScheduled = tasks.every(
-      (t) => t.initialStatus === TaskStatus.NEEDS_SCHEDULED,
-    );
-    if (allInitiallyNeedsScheduled) {
-      const anyCompletedThisVisit = tasks.some(
-        (t) =>
-          t.currentStatus === TaskStatus.SCHEDULED_OR_COMPLETE &&
-          t.initialStatus === TaskStatus.NEEDS_SCHEDULED,
-      );
-      return anyCompletedThisVisit ? MarkerColor.YELLOW : MarkerColor.BLUE;
-    }
-    return MarkerColor.ORANGE;
-  }
+  // Marker colour delegates to the shared pure function so the API and
+  // any future client renderer agree on the state machine. See
+  // REBUILD_PLAN Appendix E.
 
   private async toStore(s: {
     id: string;
@@ -206,7 +187,10 @@ export class StoresService {
         currentStatus: t.currentStatus,
       })),
       counts,
-      markerColor: this.computeMarker(s.tasks, s.completions.length > 0),
+      markerColor: computeMarkerColor({
+        tasks: s.tasks,
+        hasCompletion: s.completions.length > 0,
+      }),
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
     };

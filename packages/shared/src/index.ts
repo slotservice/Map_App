@@ -1,5 +1,6 @@
 export * from './enums.js';
 export * from './errors.js';
+export * from './marker.js';
 export * from './dto/auth.js';
 export * from './dto/common.js';
 export * from './dto/users.js';
@@ -8,3 +9,4 @@ export * from './dto/stores.js';
 export * from './dto/photos.js';
 export * from './dto/tag-alerts.js';
 export * from './dto/completions.js';
+export * from './dto/devices.js';

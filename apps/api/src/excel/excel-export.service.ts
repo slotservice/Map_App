@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { formatInTimeZone } from './format-time.js';
 
 /**
  * Build a "completed stores" workbook for a given map.
@@ -123,19 +124,3 @@ export class ExcelExportService {
   }
 }
 
-/** Render a UTC instant in an IANA timezone, format `MM/DD/YYYY h:mm AM/PM`. */
-function formatInTimeZone(date: Date, timeZone: string): string {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date);
-  } catch {
-    return date.toISOString();
-  }
-}
