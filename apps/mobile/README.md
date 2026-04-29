@@ -1,31 +1,70 @@
-# `@map-app/mobile` — Worker App (Android + iOS)
+# `@map-app/mobile` — Worker App
 
-React Native + Expo (bare workflow) + TypeScript. Replaces the legacy `app_1119.apk`.
+Expo (bare-workflow-friendly) + React Native + TypeScript. Replaces the
+legacy `app_1119.apk`.
 
-**Status:** Not yet scaffolded. Phase 1 week 2.
+## Quickstart
 
-Screens (planned, mirroring the legacy flow per [REBUILD_PLAN §7](../../docs/REBUILD_PLAN.md#7-app-flow)):
+```bash
+# from repo root, with the API running on :3001
+cp apps/mobile/.env.example apps/mobile/.env
+pnpm install
+pnpm --filter @map-app/mobile start    # opens Expo dev tools
+```
 
-* Splash → Sign In
-* Maps list (drawer: Maps / Profile / Change Password / Log out — no "Gas Lids")
-* Map view (Google Maps + colour-coded markers)
-* Store detail (modal)
-* Add Photos (Before / After columns + Tag Alert link + Property View link; **Save** vs **Save & Next** distinction fixes legacy bug L3)
-* Tag Alert sub-screen
-* Property View (Phase 2)
-* Check & Verification (signature canvas + general comments → fixes L2 by including in export)
+Use the worker seed account from `apps/api/prisma/seed.ts`:
 
-Stack notes:
+| Email | Password |
+|---|---|
+| `worker@fullcirclefm.local` | `password123` |
 
-* `react-native-maps` for the map.
-* `react-native-signature-canvas` for the signature.
-* `expo-image-picker` + `expo-camera` for photo input.
-* `expo-secure-store` (Keychain / Keystore) for refresh-token storage —
-  legacy app stored the password in plaintext SharedPreferences (APK-3
-  in `docs/legacy/manifest_summary.md`); the rebuild does not.
-* `@tanstack/react-query` for API state.
-* `zustand` for app state.
-* Photo upload via direct presigned R2 URLs with a local SQLite outbox
-  for offline tolerance.
+> **Network gotcha:** Android emulator can't reach `localhost`; the
+> default `EXPO_PUBLIC_API_URL` is `http://10.0.2.2:3001` (the
+> emulator's loopback). For physical-device testing, replace with your
+> dev machine's LAN IP.
 
-Distribution: Expo EAS → Google Play internal track + Apple TestFlight → public release.
+## Layout
+
+```
+src/
+├── lib/
+│   ├── api.ts             ky instance with auth header
+│   ├── secure-storage.ts  expo-secure-store wrappers (refresh token in Keychain/Keystore)
+│   └── auth.ts            Zustand store
+├── navigation/
+│   ├── RootNavigator.tsx  SignIn → Drawer → modal stack for store flow
+│   └── DrawerNavigator.tsx Maps / Profile / Change Password
+└── screens/
+    ├── SignInScreen.tsx
+    ├── MapsScreen.tsx          ← live wired to GET /maps
+    ├── MapViewScreen.tsx       ← stub, week 2: Google Maps + markers
+    ├── StoreDetailScreen.tsx   ← stub, week 2
+    ├── AddPhotosScreen.tsx     ← stub, week 2 (fixes legacy L3)
+    ├── TagAlertScreen.tsx      ← stub, week 3
+    ├── CheckSignScreen.tsx     ← stub, week 2 (fixes legacy L2)
+    ├── ProfileScreen.tsx       ← live read; edit week 2
+    └── ChangePasswordScreen.tsx ← live wired to POST /auth/change-password
+```
+
+## Implemented now
+
+* Login → secure-store-persisted tokens.
+* Maps list (live API).
+* Profile (read).
+* Change Password (live).
+* Navigation graph stitched end-to-end (modal Add Photos → Tag Alert / Property View links → Check & Verification).
+
+## Stubs (per milestone)
+
+* Map view + markers — week 2
+* Store detail / counts / tasks — week 2
+* Photo flow + signature — week 2
+* Tag alerts — week 3
+
+## Distribution
+
+EAS profiles in `eas.json`:
+
+* `development` — internal dev client.
+* `preview` — internal QA distribution.
+* `production` — Play Store + TestFlight (Phase 3).
