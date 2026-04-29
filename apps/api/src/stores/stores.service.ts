@@ -1,12 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { MarkerColor, type Store, TaskStatus } from '@map-app/shared';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { assertMapAccess, assertStoreAccess } from '../common/access.js';
+import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 
 @Injectable()
 export class StoresService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listByMap(mapId: string): Promise<Store[]> {
+  async listByMap(user: AuthenticatedUser, mapId: string): Promise<Store[]> {
+    await assertMapAccess(this.prisma, user, mapId);
     const stores = await this.prisma.store.findMany({
       where: { mapId, deletedAt: null },
       orderBy: { storeNumber: 'asc' },
@@ -15,7 +18,8 @@ export class StoresService {
     return stores.map((s) => this.toStore(s));
   }
 
-  async findById(id: string): Promise<Store> {
+  async findById(user: AuthenticatedUser, id: string): Promise<Store> {
+    await assertStoreAccess(this.prisma, user, id);
     const s = await this.prisma.store.findUnique({
       where: { id },
       include: { tasks: true, completions: { take: 1, orderBy: { completedAt: 'desc' } } },

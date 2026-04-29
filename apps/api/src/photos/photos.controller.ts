@@ -37,15 +37,16 @@ export class PhotosController {
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(presignUploadRequestSchema)) body: PresignUploadRequest,
   ): Promise<PresignUploadResponse> {
-    return this.photos.presignUpload(storeId, user.id, body);
+    return this.photos.presignUpload(user, storeId, body);
   }
 
   @Get('stores/:storeId/photos')
   listByStore(
     @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('kind') kind?: PhotoKind,
   ): Promise<Photo[]> {
-    return this.photos.listByStore(storeId, kind);
+    return this.photos.listByStore(user, storeId, kind);
   }
 
   @Post('photos/:id/finalize')

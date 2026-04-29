@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -8,6 +9,8 @@ import { TaskStatus, type CompleteStoreRequest, type Completion } from '@map-app
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { assertStoreAccess } from '../common/access.js';
+import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 
 @Injectable()
 export class CompletionService {
@@ -20,6 +23,7 @@ export class CompletionService {
 
   /**
    * Finalise a store visit. Validates that:
+   *  - The user is assigned to this map (RBAC).
    *  - The store exists, isn't soft-deleted, and the photos referenced
    *    are uploaded for THIS store (no cross-store linking).
    *  - The signature photo exists and is of kind 'signature'.
@@ -35,17 +39,19 @@ export class CompletionService {
    * can always soft-delete + recreate via the new admin UI.
    */
   async complete(input: {
+    user: AuthenticatedUser;
     storeId: string;
-    userId: string;
     body: CompleteStoreRequest;
   }): Promise<Completion> {
+    await assertStoreAccess(this.prisma, input.user, input.storeId);
+
     const store = await this.prisma.store.findUnique({
       where: { id: input.storeId },
       include: { map: true, tasks: true, completions: { take: 1 } },
     });
     if (!store || store.deletedAt) throw new NotFoundException('Store not found');
     if (store.completions.length > 0) {
-      throw new BadRequestException('Store already has a completion record');
+      throw new ConflictException('Store already has a completion record');
     }
 
     const expectedCounts = (store.map.countColumns as string[]) ?? [];
@@ -98,7 +104,7 @@ export class CompletionService {
       const created = await tx.completion.create({
         data: {
           storeId: input.storeId,
-          completedById: input.userId,
+          completedById: input.user.id,
           firstName: input.body.firstName,
           lastName: input.body.lastName,
           signaturePhotoId: input.body.signaturePhotoId,
@@ -133,7 +139,7 @@ export class CompletionService {
       return created;
     });
 
-    this.logger.log(`Store ${input.storeId} completed by user ${input.userId}`);
+    this.logger.log(`Store ${input.storeId} completed by user ${input.user.id}`);
 
     return this.toDto(completion.id);
   }
@@ -142,7 +148,8 @@ export class CompletionService {
    * Read-back of an existing completion. Used by the worker app to
    * display its own completed stores read-only and by the vendor portal.
    */
-  async readByStore(storeId: string): Promise<Completion | null> {
+  async readByStore(user: AuthenticatedUser, storeId: string): Promise<Completion | null> {
+    await assertStoreAccess(this.prisma, user, storeId);
     const completion = await this.prisma.completion.findFirst({
       where: { storeId },
       orderBy: { completedAt: 'desc' },

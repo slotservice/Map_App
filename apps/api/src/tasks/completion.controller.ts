@@ -35,11 +35,14 @@ export class CompletionController {
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(completeStoreRequestSchema)) body: CompleteStoreRequest,
   ): Promise<Completion> {
-    return this.completion.complete({ storeId, userId: user.id, body });
+    return this.completion.complete({ user, storeId, body });
   }
 
   @Get(':id/completion')
-  read(@Param('id', ParseUUIDPipe) storeId: string): Promise<Completion | null> {
-    return this.completion.readByStore(storeId);
+  read(
+    @Param('id', ParseUUIDPipe) storeId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Completion | null> {
+    return this.completion.readByStore(user, storeId);
   }
 }

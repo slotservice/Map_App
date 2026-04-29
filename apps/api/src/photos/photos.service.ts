@@ -15,6 +15,8 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { assertStoreAccess } from '../common/access.js';
+import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 
 @Injectable()
 export class PhotosService {
@@ -24,10 +26,11 @@ export class PhotosService {
   ) {}
 
   async presignUpload(
+    user: AuthenticatedUser,
     storeId: string,
-    userId: string,
     input: PresignUploadRequest,
   ): Promise<PresignUploadResponse> {
+    await assertStoreAccess(this.prisma, user, storeId);
     const store = await this.prisma.store.findUnique({ where: { id: storeId } });
     if (!store || store.deletedAt) throw new NotFoundException('Store not found');
 
@@ -45,7 +48,7 @@ export class PhotosService {
         contentType: input.contentType,
         sizeBytes: input.sizeBytes,
         sha256: 'pending',
-        uploadedById: userId,
+        uploadedById: user.id,
       },
     });
 
@@ -70,7 +73,12 @@ export class PhotosService {
     });
   }
 
-  async listByStore(storeId: string, kind?: PhotoKind): Promise<Photo[]> {
+  async listByStore(
+    user: AuthenticatedUser,
+    storeId: string,
+    kind?: PhotoKind,
+  ): Promise<Photo[]> {
+    await assertStoreAccess(this.prisma, user, storeId);
     const photos = await this.prisma.photo.findMany({
       where: {
         storeId,
@@ -108,7 +116,7 @@ export class PhotosService {
       throw new BadRequestException('Photo is already part of a completed visit');
     }
     if (photo.uploadedById !== userId) {
-      throw new ForbiddenException('Cannot delete another user\'s photo');
+      throw new ForbiddenException("Cannot delete another user's photo");
     }
     await this.prisma.photo.delete({ where: { id: photoId } });
     // Object intentionally left in storage; lifecycle policy reaps orphans.
