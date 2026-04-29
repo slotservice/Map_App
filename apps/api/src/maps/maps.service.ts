@@ -33,6 +33,7 @@ export class MapsService {
       orderBy: { name: 'asc' },
       include: {
         _count: { select: { stores: true, assignments: true } },
+        stores: { select: { _count: { select: { completions: true } } } },
       },
     });
 
@@ -47,7 +48,7 @@ export class MapsService {
       updatedAt: m.updatedAt.toISOString(),
       archivedAt: m.archivedAt?.toISOString() ?? null,
       storeCount: m._count.stores,
-      completedStoreCount: 0, // TODO: subquery; deferred to week-2
+      completedStoreCount: m.stores.filter((s) => s._count.completions > 0).length,
       assignedUserCount: m._count.assignments,
     }));
   }
@@ -63,17 +64,7 @@ export class MapsService {
       throw new ForbiddenException('Map not assigned to you');
     }
 
-    return {
-      id: map.id,
-      name: map.name,
-      sourceFilename: map.sourceFilename,
-      taskColumns: (map.taskColumns as string[]) ?? [],
-      countColumns: (map.countColumns as string[]) ?? [],
-      tagAlertRecipients: map.tagAlertRecipients,
-      createdAt: map.createdAt.toISOString(),
-      updatedAt: map.updatedAt.toISOString(),
-      archivedAt: map.archivedAt?.toISOString() ?? null,
-    };
+    return this.toDto(map);
   }
 
   async update(id: string, input: UpdateMapRequest): Promise<MapDto> {
@@ -89,17 +80,7 @@ export class MapsService {
         }),
       },
     });
-    return {
-      id: updated.id,
-      name: updated.name,
-      sourceFilename: updated.sourceFilename,
-      taskColumns: (updated.taskColumns as string[]) ?? [],
-      countColumns: (updated.countColumns as string[]) ?? [],
-      tagAlertRecipients: updated.tagAlertRecipients,
-      createdAt: updated.createdAt.toISOString(),
-      updatedAt: updated.updatedAt.toISOString(),
-      archivedAt: updated.archivedAt?.toISOString() ?? null,
-    };
+    return this.toDto(updated);
   }
 
   async softDelete(id: string): Promise<void> {
@@ -119,5 +100,46 @@ export class MapsService {
 
   async unassign(mapId: string, userId: string): Promise<void> {
     await this.prisma.mapAssignment.deleteMany({ where: { mapId, userId } });
+  }
+
+  async listAssignments(
+    mapId: string,
+    role?: UserRole,
+  ): Promise<Array<{ userId: string; email: string; firstName: string; lastName: string; role: UserRole }>> {
+    const rows = await this.prisma.mapAssignment.findMany({
+      where: { mapId, ...(role ? { assignedRole: role } : {}) },
+      include: { user: true },
+    });
+    return rows.map((r) => ({
+      userId: r.user.id,
+      email: r.user.email,
+      firstName: r.user.firstName,
+      lastName: r.user.lastName,
+      role: r.assignedRole,
+    }));
+  }
+
+  private toDto(map: {
+    id: string;
+    name: string;
+    sourceFilename: string | null;
+    taskColumns: unknown;
+    countColumns: unknown;
+    tagAlertRecipients: string[];
+    createdAt: Date;
+    updatedAt: Date;
+    archivedAt: Date | null;
+  }): MapDto {
+    return {
+      id: map.id,
+      name: map.name,
+      sourceFilename: map.sourceFilename,
+      taskColumns: (map.taskColumns as string[]) ?? [],
+      countColumns: (map.countColumns as string[]) ?? [],
+      tagAlertRecipients: map.tagAlertRecipients,
+      createdAt: map.createdAt.toISOString(),
+      updatedAt: map.updatedAt.toISOString(),
+      archivedAt: map.archivedAt?.toISOString() ?? null,
+    };
   }
 }

@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
@@ -59,6 +60,15 @@ export class MapsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   softDelete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.maps.softDelete(id);
+  }
+
+  @Get(':id/assignments')
+  @Roles(UserRole.ADMIN)
+  listAssignments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('role') role?: UserRole,
+  ): Promise<Array<{ userId: string; email: string; firstName: string; lastName: string; role: UserRole }>> {
+    return this.maps.listAssignments(id, role);
   }
 
   @Roles(UserRole.ADMIN)
