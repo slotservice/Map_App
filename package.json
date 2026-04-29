@@ -16,9 +16,10 @@
     "test": "pnpm -r test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml}\"",
-    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
-    "infra:down": "docker compose -f infra/docker-compose.yml down",
-    "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
+    "infra:up": "node infra/up.mjs",
+    "infra:down": "node infra/down.mjs",
+    "infra:up:docker": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down:docker": "docker compose -f infra/docker-compose.yml down",
     "prepare": "husky"
   },
   "devDependencies": {

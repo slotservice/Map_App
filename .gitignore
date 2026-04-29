@@ -53,6 +53,19 @@ apps/api/.env.production
 # Docker
 .docker/
 
+# Local stack — heavyweight binaries + storage stay local-only
+.local-stack/minio.exe
+.local-stack/mc.exe
+.local-stack/data/
+.local-stack/*.log
+.local-stack/*.log.err
+
+# pnpm store (when project-local — see local-dev workaround for Windows AV)
+.pnpm-store/
+
+# install.log from setup
+install.log
+
 # Test artefacts
 .nyc_output/
 *.lcov
