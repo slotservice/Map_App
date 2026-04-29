@@ -76,13 +76,9 @@ export function TagAlertScreen({ route }: Props) {
         { text: 'OK', onPress: () => nav.goBack() },
       ]);
     } catch (err) {
-      // The endpoint returns 501 today; admin email pipeline is week-3.
-      // Soften the error so workers know the issue was raised but the
-      // notification will follow.
       Alert.alert(
-        'Saved (email pending)',
-        err instanceof Error ? err.message : 'Tag alert recorded; email delivery is being finalised.',
-        [{ text: 'OK', onPress: () => nav.goBack() }],
+        'Could not send tag alert',
+        err instanceof Error ? err.message : 'Please try again.',
       );
     } finally {
       setBusy(false);

@@ -160,7 +160,10 @@ export function AddPhotosScreen({ route }: Props) {
       <View style={styles.bottomActions}>
         <Pressable
           style={[styles.button, styles.secondaryButton]}
-          onPress={() => nav.navigate('Main')}
+          // Pop AddPhotos + StoreDetail → land back on the map. Photos
+          // already live on the server so coming back to this store
+          // later picks up exactly where we left off.
+          onPress={() => nav.pop(2)}
         >
           <Text style={styles.secondaryText}>Save</Text>
         </Pressable>

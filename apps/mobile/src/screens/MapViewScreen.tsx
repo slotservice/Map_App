@@ -72,6 +72,9 @@ function StoreMarker({ store, onPress }: { store: Store; onPress: () => void }) 
     <Marker
       coordinate={{ latitude: store.latitude, longitude: store.longitude }}
       onPress={onPress}
+      // Custom view markers are very expensive on iOS unless we tell
+      // react-native-maps that the view content is static.
+      tracksViewChanges={false}
     >
       <View style={[styles.markerBubble, { backgroundColor: MARKER_COLOR_HEX[store.markerColor] }]}>
         <Text style={styles.markerLabel}>{store.storeNumber}</Text>

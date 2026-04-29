@@ -84,7 +84,9 @@ export function CheckSignScreen({ route }: Props) {
 
       resetDraft(storeId);
       Alert.alert('Store completed', 'Marker turns red on the map.', [
-        { text: 'OK', onPress: () => nav.navigate('Main') },
+        // Pop CheckSign + AddPhotos + StoreDetail → back to MapView
+        // so the worker sees the marker turn red.
+        { text: 'OK', onPress: () => nav.pop(3) },
       ]);
     } catch (err) {
       Alert.alert('Could not complete', err instanceof Error ? err.message : 'Please try again');
