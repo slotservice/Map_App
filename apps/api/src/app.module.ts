@@ -16,6 +16,7 @@ import { ExcelModule } from './excel/excel.module.js';
 import { HealthModule } from './health/health.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { EmailModule } from './email/email.module.js';
+import { OutboxModule } from './outbox/outbox.module.js';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -59,6 +60,7 @@ const envSchema = z.object({
     TagAlertsModule,
     ExcelModule,
     HealthModule,
+    OutboxModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
