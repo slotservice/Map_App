@@ -1,0 +1,331 @@
+// Full Circle Map App — Prisma schema
+// See REBUILD_PLAN.md §5 for the design rationale.
+// All timestamps stored as UTC. All ids are uuid. Soft-delete via
+// `deletedAt` where it matters.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// Identity & RBAC
+// =====================================================================
+
+enum UserRole {
+  admin
+  vendor
+  viewer
+  worker
+}
+
+enum UserStatus {
+  active
+  blocked
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique @db.Citext
+  passwordHash String     @map("password_hash")
+  firstName    String     @map("first_name")
+  lastName     String     @map("last_name")
+  phone        String?
+  address      String?
+  state        String?    @db.VarChar(20)
+  zip          String?    @db.VarChar(20)
+  role         UserRole
+  status       UserStatus @default(active)
+  /// Legacy users.id for migration cross-reference; null for new users.
+  legacyId     Int?       @unique @map("legacy_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
+
+  refreshTokens   RefreshToken[]
+  assignments     MapAssignment[]
+  completions     Completion[]
+  raisedTagAlerts TagAlert[]      @relation("RaisedBy")
+  uploadedPhotos  Photo[]         @relation("UploadedBy")
+  createdMaps     Map[]           @relation("CreatedBy")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  /// SHA-256 hash; raw token never stored.
+  tokenHash   String    @unique @map("token_hash")
+  /// Optional device label so admins can revoke "the iPhone".
+  deviceLabel String?   @map("device_label")
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// =====================================================================
+// Maps & assignments
+// =====================================================================
+
+model Map {
+  id                  String    @id @default(uuid()) @db.Uuid
+  name                String    @db.VarChar(100)
+  sourceFilename      String?   @map("source_filename")
+  /// Ordered list of "task" column names from the import Excel.
+  taskColumns         Json      @default("[]") @map("task_columns")
+  /// Ordered list of "count" column names from the import Excel.
+  countColumns        Json      @default("[]") @map("count_columns")
+  /// Per-map tag-alert email recipient list.
+  tagAlertRecipients  String[]  @default([]) @map("tag_alert_recipients")
+  createdById         String?   @map("created_by") @db.Uuid
+  archivedAt          DateTime? @map("archived_at")
+  legacyId            Int?      @unique @map("legacy_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+
+  createdBy   User?           @relation("CreatedBy", fields: [createdById], references: [id])
+  stores      Store[]
+  assignments MapAssignment[]
+
+  @@map("maps")
+}
+
+model MapAssignment {
+  mapId       String   @map("map_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  assignedRole UserRole @map("assigned_role")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  map  Map  @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([mapId, userId])
+  @@index([userId])
+  @@map("map_assignments")
+}
+
+// =====================================================================
+// Stores (rows from the Excel)
+// =====================================================================
+
+model Store {
+  id          String  @id @default(uuid()) @db.Uuid
+  mapId       String  @map("map_id") @db.Uuid
+  storeNumber String  @map("store_number")
+  storeName   String  @map("store_name")
+  state       String? @db.VarChar(20)
+  address     String?
+  /// Always text — preserves leading zeros lost in legacy.
+  zip         String? @db.VarChar(20)
+  latitude    Decimal @db.Decimal(10, 7)
+  longitude   Decimal @db.Decimal(10, 7)
+  type        String? @db.VarChar(50)
+  manager     String? @db.VarChar(100)
+  regional    String? @db.VarChar(100)
+  notes       String?
+  /// R2 key for property-view image; null if not uploaded.
+  propertyImageKey String? @map("property_image_key")
+  /// Full original Excel row, including any columns we didn't pull out.
+  raw         Json    @default("{}")
+  legacyTaskId Int?   @unique @map("legacy_task_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  map         Map         @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  tasks       StoreTask[]
+  completions Completion[]
+  photos      Photo[]
+  tagAlerts   TagAlert[]
+
+  @@index([mapId])
+  @@map("stores")
+}
+
+enum TaskStatus {
+  needs_scheduled
+  scheduled_or_complete
+}
+
+model StoreTask {
+  storeId       String     @map("store_id") @db.Uuid
+  taskName      String     @map("task_name")
+  initialStatus TaskStatus @map("initial_status")
+  currentStatus TaskStatus @map("current_status")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, taskName])
+  @@map("store_tasks")
+}
+
+// =====================================================================
+// Completions, counts, photos
+// =====================================================================
+
+model Completion {
+  id                String   @id @default(uuid()) @db.Uuid
+  storeId           String   @map("store_id") @db.Uuid
+  completedById     String   @map("completed_by") @db.Uuid
+  firstName         String   @map("first_name") @db.VarChar(50)
+  lastName          String   @map("last_name") @db.VarChar(50)
+  signaturePhotoId  String?  @unique @map("signature_photo_id") @db.Uuid
+  /// Replaces legacy completion.comments (was varchar(255), silently truncated).
+  generalComments   String   @default("") @map("general_comments")
+  completedAt       DateTime @map("completed_at")
+  /// IANA tz name, e.g. "America/Indiana/Indianapolis".
+  deviceTimezone    String   @map("device_timezone") @db.VarChar(64)
+  legacyId          Int?     @unique @map("legacy_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  store          Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  completedBy    User               @relation(fields: [completedById], references: [id])
+  signaturePhoto Photo?             @relation("SignaturePhoto", fields: [signaturePhotoId], references: [id])
+  counts         CompletionCount[]
+  photos         Photo[]            @relation("CompletionPhotos")
+
+  @@index([storeId])
+  @@index([completedById])
+  @@map("completions")
+}
+
+model CompletionCount {
+  completionId String @map("completion_id") @db.Uuid
+  countName    String @map("count_name") @db.VarChar(100)
+  value        Int
+
+  completion Completion @relation(fields: [completionId], references: [id], onDelete: Cascade)
+
+  @@id([completionId, countName])
+  @@map("completion_counts")
+}
+
+enum PhotoKind {
+  before
+  after
+  tag_alert
+  property_view
+  signature
+}
+
+model Photo {
+  id           String    @id @default(uuid()) @db.Uuid
+  storeId      String    @map("store_id") @db.Uuid
+  completionId String?   @map("completion_id") @db.Uuid
+  kind         PhotoKind
+  fieldName    String?   @map("field_name") @db.VarChar(100)
+  /// R2 object key (not URL). URLs are minted on read.
+  objectKey    String    @map("object_key")
+  contentType  String    @map("content_type") @db.VarChar(100)
+  sizeBytes    Int       @map("size_bytes")
+  /// SHA-256 hex of the bytes; used for dedup.
+  sha256       String    @db.VarChar(64)
+  uploadedById String    @map("uploaded_by") @db.Uuid
+  finalizedAt  DateTime? @map("finalized_at")
+  legacyPath   String?   @map("legacy_path")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  store              Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  completion         Completion? @relation("CompletionPhotos", fields: [completionId], references: [id], onDelete: SetNull)
+  uploadedBy         User        @relation("UploadedBy", fields: [uploadedById], references: [id])
+  signatureCompletion Completion? @relation("SignaturePhoto")
+  tagAlertPhotos     TagAlertPhoto[]
+
+  @@index([storeId])
+  @@index([completionId])
+  @@map("photos")
+}
+
+// =====================================================================
+// Tag alerts
+// =====================================================================
+
+enum EmailStatus {
+  pending
+  sent
+  failed
+}
+
+model TagAlert {
+  id           String      @id @default(uuid()) @db.Uuid
+  storeId      String      @map("store_id") @db.Uuid
+  raisedById   String      @map("raised_by") @db.Uuid
+  title        String      @db.VarChar(200)
+  description  String
+  raisedAt     DateTime    @map("raised_at")
+  emailStatus  EmailStatus @default(pending) @map("email_status")
+  emailSentAt  DateTime?   @map("email_sent_at")
+  emailError   String?     @map("email_error")
+  legacyId     Int?        @unique @map("legacy_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  store    Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  raisedBy User            @relation("RaisedBy", fields: [raisedById], references: [id])
+  photos   TagAlertPhoto[]
+
+  @@index([storeId])
+  @@map("tag_alerts")
+}
+
+model TagAlertPhoto {
+  tagAlertId String @map("tag_alert_id") @db.Uuid
+  photoId    String @map("photo_id") @db.Uuid
+
+  tagAlert TagAlert @relation(fields: [tagAlertId], references: [id], onDelete: Cascade)
+  photo    Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@id([tagAlertId, photoId])
+  @@map("tag_alert_photos")
+}
+
+// =====================================================================
+// Outbox (email queue) + audit log
+// =====================================================================
+
+enum OutboxStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+model OutboxItem {
+  id           String       @id @default(uuid()) @db.Uuid
+  kind         String       @db.VarChar(50)
+  payload      Json
+  status       OutboxStatus @default(pending)
+  attempts     Int          @default(0)
+  lastError    String?      @map("last_error")
+  scheduledAt  DateTime     @default(now()) @map("scheduled_at")
+  processedAt  DateTime?    @map("processed_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([status, scheduledAt])
+  @@map("outbox_items")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String?  @map("actor_id") @db.Uuid
+  action       String   @db.VarChar(100)
+  resourceType String   @map("resource_type") @db.VarChar(50)
+  resourceId   String?  @map("resource_id") @db.Uuid
+  payload      Json     @default("{}")
+  at           DateTime @default(now())
+
+  @@index([resourceType, resourceId])
+  @@index([actorId])
+  @@map("audit_log")
+}
