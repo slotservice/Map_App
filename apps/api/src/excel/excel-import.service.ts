@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { TaskStatus } from '@map-app/shared';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AuditService } from '../audit/audit.service.js';
 
 /**
  * Excel → Map + Stores + StoreTasks importer.
@@ -28,7 +29,10 @@ import { PrismaService } from '../prisma/prisma.service.js';
 export class ExcelImportService {
   private readonly logger = new Logger(ExcelImportService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async importMap(input: {
     name: string;
@@ -123,6 +127,20 @@ export class ExcelImportService {
       `Imported map "${input.name}" (${map.id}): ${rows.length} stores, ` +
         `${layout.taskColumns.length} task col(s), ${layout.countColumns.length} count col(s)`,
     );
+
+    await this.audit.record({
+      actorId: input.createdById,
+      action: 'map.create',
+      resourceType: 'map',
+      resourceId: map.id,
+      payload: {
+        name: input.name,
+        sourceFilename: input.fileName,
+        storeCount: rows.length,
+        taskColumns: layout.taskColumns,
+        countColumns: layout.countColumns,
+      },
+    });
 
     return {
       mapId: map.id,

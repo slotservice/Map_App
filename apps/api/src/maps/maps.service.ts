@@ -8,10 +8,14 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
+import { AuditService } from '../audit/audit.service.js';
 
 @Injectable()
 export class MapsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * Returns the list of maps visible to the requester.
@@ -67,7 +71,7 @@ export class MapsService {
     return this.toDto(map);
   }
 
-  async update(id: string, input: UpdateMapRequest): Promise<MapDto> {
+  async update(actorId: string, id: string, input: UpdateMapRequest): Promise<MapDto> {
     const updated = await this.prisma.map.update({
       where: { id },
       data: {
@@ -80,26 +84,53 @@ export class MapsService {
         }),
       },
     });
+    await this.audit.record({
+      actorId,
+      action: 'map.update',
+      resourceType: 'map',
+      resourceId: id,
+      payload: input as Record<string, unknown>,
+    });
     return this.toDto(updated);
   }
 
-  async softDelete(id: string): Promise<void> {
+  async softDelete(actorId: string, id: string): Promise<void> {
     await this.prisma.map.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
+    await this.audit.record({
+      actorId,
+      action: 'map.soft_delete',
+      resourceType: 'map',
+      resourceId: id,
+    });
   }
 
-  async assign(mapId: string, userId: string, role: UserRole): Promise<void> {
+  async assign(actorId: string, mapId: string, userId: string, role: UserRole): Promise<void> {
     await this.prisma.mapAssignment.upsert({
       where: { mapId_userId: { mapId, userId } },
       create: { mapId, userId, assignedRole: role },
       update: { assignedRole: role },
     });
+    await this.audit.record({
+      actorId,
+      action: 'map.assign',
+      resourceType: 'map',
+      resourceId: mapId,
+      payload: { userId, role },
+    });
   }
 
-  async unassign(mapId: string, userId: string): Promise<void> {
+  async unassign(actorId: string, mapId: string, userId: string): Promise<void> {
     await this.prisma.mapAssignment.deleteMany({ where: { mapId, userId } });
+    await this.audit.record({
+      actorId,
+      action: 'map.unassign',
+      resourceType: 'map',
+      resourceId: mapId,
+      payload: { userId },
+    });
   }
 
   async listAssignments(

@@ -49,17 +49,21 @@ export class MapsController {
   @Roles(UserRole.ADMIN)
   @Patch(':id')
   update(
+    @CurrentUser() actor: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateMapRequestSchema)) body: UpdateMapRequest,
   ): Promise<MapDto> {
-    return this.maps.update(id, body);
+    return this.maps.update(actor.id, id, body);
   }
 
   @Roles(UserRole.ADMIN)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  softDelete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.maps.softDelete(id);
+  softDelete(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    return this.maps.softDelete(actor.id, id);
   }
 
   @Get(':id/assignments')
@@ -75,19 +79,21 @@ export class MapsController {
   @Post(':id/assignments')
   @HttpCode(HttpStatus.NO_CONTENT)
   async assign(
+    @CurrentUser() actor: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(mapAssignmentSchema)) body: MapAssignment,
   ): Promise<void> {
-    await this.maps.assign(id, body.userId, body.role);
+    await this.maps.assign(actor.id, id, body.userId, body.role);
   }
 
   @Roles(UserRole.ADMIN)
   @Delete(':id/assignments/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async unassign(
+    @CurrentUser() actor: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('userId', ParseUUIDPipe) userId: string,
   ): Promise<void> {
-    await this.maps.unassign(id, userId);
+    await this.maps.unassign(actor.id, id, userId);
   }
 }

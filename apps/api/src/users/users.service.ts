@@ -9,10 +9,14 @@ import {
 } from '@map-app/shared';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AuditService } from '../audit/audit.service.js';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async list(role?: UserRole): Promise<User[]> {
     const rows = await this.prisma.user.findMany({
@@ -22,7 +26,10 @@ export class UsersService {
     return rows.map(toUser);
   }
 
-  async create(input: CreateUserRequest): Promise<{ user: User; initialPassword: string }> {
+  async create(
+    actorId: string,
+    input: CreateUserRequest,
+  ): Promise<{ user: User; initialPassword: string }> {
     const password = input.initialPassword ?? randomBytes(8).toString('base64url');
     const passwordHash = await bcrypt.hash(password, 10);
 
@@ -37,19 +44,38 @@ export class UsersService {
       },
     });
 
+    await this.audit.record({
+      actorId,
+      action: 'user.create',
+      resourceType: 'user',
+      resourceId: created.id,
+      payload: { email: created.email, role: created.role },
+    });
+
     return { user: toUser(created), initialPassword: password };
   }
 
-  async update(id: string, input: UpdateUserRequest): Promise<User> {
+  async update(actorId: string, id: string, input: UpdateUserRequest): Promise<User> {
     await this.assertExists(id);
     const updated = await this.prisma.user.update({
       where: { id },
       data: input,
     });
+    await this.audit.record({
+      actorId,
+      action: 'user.update',
+      resourceType: 'user',
+      resourceId: id,
+      payload: input as Record<string, unknown>,
+    });
     return toUser(updated);
   }
 
-  async resetPassword(id: string, override?: string): Promise<{ newPassword: string }> {
+  async resetPassword(
+    actorId: string,
+    id: string,
+    override?: string,
+  ): Promise<{ newPassword: string }> {
     await this.assertExists(id);
     const newPassword = override ?? randomBytes(8).toString('base64url');
     const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -58,14 +84,26 @@ export class UsersService {
       where: { userId: id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    await this.audit.record({
+      actorId,
+      action: 'user.reset_password',
+      resourceType: 'user',
+      resourceId: id,
+    });
     return { newPassword };
   }
 
-  async softDelete(id: string): Promise<void> {
+  async softDelete(actorId: string, id: string): Promise<void> {
     await this.assertExists(id);
     await this.prisma.user.update({
       where: { id },
       data: { deletedAt: new Date(), status: 'blocked' },
+    });
+    await this.audit.record({
+      actorId,
+      action: 'user.soft_delete',
+      resourceType: 'user',
+      resourceId: id,
     });
   }
 
