@@ -45,3 +45,18 @@ export const loginResponseSchema = z.object({
   tokens: tokenPairSchema,
 });
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
+
+export const forgotPasswordRequestSchema = z.object({
+  email: z.string().email().max(254),
+});
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
+
+/** Self-service reset: redeem the token from the email link + set a new password. */
+export const passwordResetConfirmRequestSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z
+    .string()
+    .min(8, 'New password must be at least 8 characters')
+    .max(128),
+});
+export type PasswordResetConfirmRequest = z.infer<typeof passwordResetConfirmRequestSchema>;

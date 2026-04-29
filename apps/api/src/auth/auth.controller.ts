@@ -2,11 +2,15 @@ import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   changePasswordRequestSchema,
+  forgotPasswordRequestSchema,
   loginRequestSchema,
+  passwordResetConfirmRequestSchema,
   refreshTokenRequestSchema,
   type ChangePasswordRequest,
+  type ForgotPasswordRequest,
   type LoginRequest,
   type LoginResponse,
+  type PasswordResetConfirmRequest,
   type RefreshTokenRequest,
   type TokenPair,
 } from '@map-app/shared';
@@ -52,5 +56,24 @@ export class AuthController {
     @Body(new ZodValidationPipe(changePasswordRequestSchema)) body: ChangePasswordRequest,
   ): Promise<void> {
     await this.auth.changePassword(user.id, body.oldPassword, body.newPassword);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async forgotPassword(
+    @Body(new ZodValidationPipe(forgotPasswordRequestSchema)) body: ForgotPasswordRequest,
+  ): Promise<void> {
+    await this.auth.forgotPassword(body.email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async confirmPasswordReset(
+    @Body(new ZodValidationPipe(passwordResetConfirmRequestSchema))
+    body: PasswordResetConfirmRequest,
+  ): Promise<void> {
+    await this.auth.confirmPasswordReset(body.token, body.newPassword);
   }
 }

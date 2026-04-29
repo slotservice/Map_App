@@ -42,7 +42,9 @@ apps/mobile/*.keystore
 
 # Backend (NestJS)
 apps/api/dist/
-apps/api/.env*
+apps/api/.env
+apps/api/.env.local
+apps/api/.env.production
 
 # Database / migrations runtime
 *.sqlite

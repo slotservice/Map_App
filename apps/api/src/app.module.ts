@@ -17,6 +17,7 @@ import { HealthModule } from './health/health.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { EmailModule } from './email/email.module.js';
 import { OutboxModule } from './outbox/outbox.module.js';
+import { AuditModule } from './audit/audit.module.js';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -39,6 +40,7 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional().default(''),
   SMTP_FROM: z.string().min(1),
   CORS_ORIGINS: z.string().default(''),
+  ADMIN_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
 });
 
 @Module({
@@ -51,6 +53,7 @@ const envSchema = z.object({
     PrismaModule,
     StorageModule,
     EmailModule,
+    AuditModule,
     AuthModule,
     UsersModule,
     MapsModule,
@@ -61,6 +64,7 @@ const envSchema = z.object({
     ExcelModule,
     HealthModule,
     OutboxModule,
+    AuditModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

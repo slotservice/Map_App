@@ -67,6 +67,12 @@ export default function LoginPage() {
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
+        <a
+          href="/forgot-password"
+          className="block text-center text-sm text-muted-foreground hover:text-brand"
+        >
+          Forgot password?
+        </a>
       </form>
     </main>
   );

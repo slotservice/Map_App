@@ -103,6 +103,76 @@ export class AuthService {
     await this.revokeAll(userId);
   }
 
+  /**
+   * Self-service forgot-password. Always returns void, never reveals
+   * whether the email exists (no enumeration). If the user exists and
+   * isn't blocked, mints a single-use token (valid 30 min) and enqueues
+   * a password-reset email.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+    if (!user || user.deletedAt || user.status === 'blocked') return;
+
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenHash = sha256(rawToken);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+
+    await this.prisma.$transaction([
+      // Invalidate any pending tokens — only one active reset link at a time.
+      this.prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.passwordResetToken.create({
+        data: { userId: user.id, tokenHash, expiresAt },
+      }),
+      this.prisma.outboxItem.create({
+        data: {
+          kind: 'password_reset_email',
+          payload: { userId: user.id, email: user.email, rawToken },
+        },
+      }),
+    ]);
+  }
+
+  async confirmPasswordReset(rawToken: string, newPassword: string): Promise<void> {
+    const tokenHash = sha256(rawToken);
+    const stored = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+
+    if (
+      !stored ||
+      stored.usedAt ||
+      stored.expiresAt < new Date() ||
+      stored.user.deletedAt ||
+      stored.user.status === 'blocked'
+    ) {
+      throw new UnauthorizedException(ErrorCode.UNAUTHORIZED);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: stored.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: stored.id },
+        data: { usedAt: new Date() },
+      }),
+      // Revoke every existing session — anyone holding a stale refresh
+      // token has to re-login with the new password.
+      this.prisma.refreshToken.updateMany({
+        where: { userId: stored.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+  }
+
   // ---- internal ------------------------------------------------------------
 
   private async issueTokens(userId: string, email: string, role: UserRole): Promise<TokenPair> {
