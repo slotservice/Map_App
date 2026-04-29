@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "migrate": "tsx src/index.ts",
+    "migrate:verify": "tsx src/verify.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
