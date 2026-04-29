@@ -10,6 +10,8 @@ const ALL_NAV = [
   { href: '/maps', label: 'Maps', roles: [UserRole.ADMIN, UserRole.VENDOR, UserRole.VIEWER] },
   { href: '/workers', label: 'Workers', roles: [UserRole.ADMIN] },
   { href: '/vendors', label: 'Vendors', roles: [UserRole.ADMIN] },
+  { href: '/viewers', label: 'Viewers', roles: [UserRole.ADMIN] },
+  { href: '/audit-log', label: 'Audit log', roles: [UserRole.ADMIN] },
   { href: '/profile', label: 'Profile', roles: [UserRole.ADMIN, UserRole.VENDOR, UserRole.VIEWER] },
   {
     href: '/change-password',
