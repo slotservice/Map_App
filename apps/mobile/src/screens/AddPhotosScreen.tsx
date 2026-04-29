@@ -119,7 +119,7 @@ export function AddPhotosScreen({ route }: Props) {
         <Pressable onPress={() => nav.navigate('TagAlert', { storeId })}>
           <Text style={styles.link}>Tag Alert</Text>
         </Pressable>
-        <Pressable onPress={() => Alert.alert('Property View', 'Coming in Phase 2.')}>
+        <Pressable onPress={() => nav.navigate('PropertyView', { storeId })}>
           <Text style={styles.link}>Property View</Text>
         </Pressable>
       </View>

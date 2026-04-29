@@ -7,6 +7,7 @@ import { AddPhotosScreen } from '../screens/AddPhotosScreen';
 import { TagAlertScreen } from '../screens/TagAlertScreen';
 import { CheckSignScreen } from '../screens/CheckSignScreen';
 import { MapViewScreen } from '../screens/MapViewScreen';
+import { PropertyViewScreen } from '../screens/PropertyViewScreen';
 
 export type RootStackParamList = {
   SignIn: undefined;
@@ -16,6 +17,7 @@ export type RootStackParamList = {
   AddPhotos: { storeId: string };
   TagAlert: { storeId: string };
   CheckSign: { storeId: string };
+  PropertyView: { storeId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -54,6 +56,11 @@ export function RootNavigator() {
             name="CheckSign"
             component={CheckSignScreen}
             options={{ headerShown: true, title: 'Check and Verification' }}
+          />
+          <Stack.Screen
+            name="PropertyView"
+            component={PropertyViewScreen}
+            options={{ headerShown: true, title: 'Property View' }}
           />
         </>
       )}

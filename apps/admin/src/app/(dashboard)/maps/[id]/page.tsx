@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { PropertyImageDialog } from '@/components/property-image-dialog';
 import { useMap, useMapStores } from '@/lib/queries';
 import { useAuthStore } from '@/lib/auth';
-import { UserRole, type MarkerColor } from '@map-app/shared';
+import { UserRole, type MarkerColor, type Store } from '@map-app/shared';
 
 const COLOR_LABEL: Record<MarkerColor, string> = {
   blue: 'Blue (needs scheduled)',
@@ -27,6 +29,7 @@ export default function MapDetailPage() {
   const { data: stores, isLoading: storesLoading } = useMapStores(id);
   const role = useAuthStore((s) => s.user?.role);
   const isAdmin = role === UserRole.ADMIN;
+  const [propertyTarget, setPropertyTarget] = useState<Store | null>(null);
 
   if (mapLoading) return <p className="text-sm text-muted-foreground">Loading map…</p>;
   if (!map) return <p className="text-sm text-red-600">Map not found.</p>;
@@ -54,6 +57,9 @@ export default function MapDetailPage() {
             </Link>
             <Link href={`/maps/${id}/vendors`}>
               <Button variant="secondary">Manage vendors</Button>
+            </Link>
+            <Link href={`/maps/${id}/viewers`}>
+              <Button variant="secondary">Manage viewers</Button>
             </Link>
             <Link href={`/maps/${id}/tag-alerts`}>
               <Button variant="secondary">Tag-alert recipients</Button>
@@ -89,6 +95,7 @@ export default function MapDetailPage() {
                       {t.replace(/_/g, ' ')}
                     </th>
                   ))}
+                  <th className="py-2 pr-4 font-medium">Property</th>
                   <th className="py-2 pr-4 font-medium"></th>
                 </tr>
               </thead>
@@ -114,6 +121,39 @@ export default function MapDetailPage() {
                       );
                     })}
                     <td className="py-2 pr-4">
+                      {isAdmin ? (
+                        <button
+                          onClick={() => setPropertyTarget(s)}
+                          className="flex items-center gap-2 text-sm text-brand hover:underline"
+                        >
+                          {s.propertyImageUrl ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={s.propertyImageUrl}
+                                alt=""
+                                className="h-8 w-8 rounded border object-cover"
+                              />
+                              <span>Edit</span>
+                            </>
+                          ) : (
+                            <span>+ Add</span>
+                          )}
+                        </button>
+                      ) : s.propertyImageUrl ? (
+                        <a
+                          href={s.propertyImageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm text-brand hover:underline"
+                        >
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">
                       {s.markerColor === 'red' ? (
                         <Link
                           href={`/maps/${id}/stores/${s.id}/completion`}
@@ -132,6 +172,18 @@ export default function MapDetailPage() {
           </div>
         )}
       </section>
+
+      {propertyTarget && (
+        <PropertyImageDialog
+          open={!!propertyTarget}
+          onOpenChange={(o) => !o && setPropertyTarget(null)}
+          storeId={propertyTarget.id}
+          mapId={id}
+          storeNumber={propertyTarget.storeNumber}
+          storeName={propertyTarget.storeName}
+          currentUrl={propertyTarget.propertyImageUrl}
+        />
+      )}
     </section>
   );
 }
