@@ -9,6 +9,7 @@ import type { OutboxItem } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TagAlertEmailHandler } from './handlers/tag-alert-email.handler.js';
 import { PasswordResetEmailHandler } from './handlers/password-reset-email.handler.js';
+import { ExpoPushHandler } from './handlers/expo-push.handler.js';
 
 const POLL_INTERVAL_MS = 5_000;
 const BATCH_SIZE = 5;
@@ -40,9 +41,11 @@ export class OutboxWorker implements OnApplicationBootstrap, OnApplicationShutdo
     private readonly prisma: PrismaService,
     tagAlertEmail: TagAlertEmailHandler,
     passwordResetEmail: PasswordResetEmailHandler,
+    expoPush: ExpoPushHandler,
   ) {
     this.handlers.set(tagAlertEmail.kind, tagAlertEmail);
     this.handlers.set(passwordResetEmail.kind, passwordResetEmail);
+    this.handlers.set(expoPush.kind, expoPush);
   }
 
   onApplicationBootstrap(): void {

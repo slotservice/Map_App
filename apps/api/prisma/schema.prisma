@@ -48,6 +48,7 @@ model User {
 
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  deviceTokens        DeviceToken[]
   assignments         MapAssignment[]
   completions         Completion[]
   raisedTagAlerts     TagAlert[]      @relation("RaisedBy")
@@ -87,6 +88,32 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+enum DevicePlatform {
+  ios
+  android
+}
+
+/// Per-device push-notification target. The mobile app registers its
+/// Expo push token after login and deregisters on logout. One user may
+/// hold multiple device tokens (phone + tablet, or before/after a
+/// reinstall).
+model DeviceToken {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  /// "ExponentPushToken[…]" string from expo-notifications.
+  pushToken   String         @unique @map("push_token")
+  platform    DevicePlatform
+  /// Optional human label shown in the future "manage devices" admin UI.
+  label       String?
+  lastSeenAt  DateTime       @default(now()) @map("last_seen_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
 }
 
 // =====================================================================

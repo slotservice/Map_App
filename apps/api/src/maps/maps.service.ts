@@ -108,6 +108,11 @@ export class MapsService {
   }
 
   async assign(actorId: string, mapId: string, userId: string, role: UserRole): Promise<void> {
+    const map = await this.prisma.map.findUnique({
+      where: { id: mapId },
+      select: { name: true },
+    });
+
     await this.prisma.mapAssignment.upsert({
       where: { mapId_userId: { mapId, userId } },
       create: { mapId, userId, assignedRole: role },
@@ -120,6 +125,23 @@ export class MapsService {
       resourceId: mapId,
       payload: { userId, role },
     });
+
+    // Push notification: only fires for workers (vendors/viewers don't
+    // use the mobile app). Best-effort — if the user has no devices
+    // registered, the handler logs and returns successfully.
+    if (role === UserRole.WORKER && map) {
+      await this.prisma.outboxItem.create({
+        data: {
+          kind: 'push_notification',
+          payload: {
+            userId,
+            title: 'New map assigned',
+            body: `You've been assigned to "${map.name}".`,
+            data: { mapId, deepLink: `mapapp://maps/${mapId}` },
+          },
+        },
+      });
+    }
   }
 
   async unassign(actorId: string, mapId: string, userId: string): Promise<void> {
