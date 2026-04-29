@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useMap, useMapStores } from '@/lib/queries';
-import type { MarkerColor } from '@map-app/shared';
+import { useAuthStore } from '@/lib/auth';
+import { UserRole, type MarkerColor } from '@map-app/shared';
 
 const COLOR_LABEL: Record<MarkerColor, string> = {
   blue: 'Blue (needs scheduled)',
@@ -24,6 +25,8 @@ export default function MapDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: map, isLoading: mapLoading } = useMap(id);
   const { data: stores, isLoading: storesLoading } = useMapStores(id);
+  const role = useAuthStore((s) => s.user?.role);
+  const isAdmin = role === UserRole.ADMIN;
 
   if (mapLoading) return <p className="text-sm text-muted-foreground">Loading map…</p>;
   if (!map) return <p className="text-sm text-red-600">Map not found.</p>;
@@ -38,20 +41,27 @@ export default function MapDetailPage() {
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">{map.name}</h1>
         <p className="text-sm text-muted-foreground">
-          Imported from {map.sourceFilename ?? '—'} · {map.taskColumns.length} task col(s),{' '}
-          {map.countColumns.length} count col(s)
+          {map.sourceFilename && <>Imported from {map.sourceFilename} · </>}
+          {map.taskColumns.length} task col(s), {map.countColumns.length} count col(s)
         </p>
       </header>
 
-      <nav className="flex gap-3">
-        <Link href={`/maps/${id}/workers`}>
-          <Button variant="secondary">Manage workers</Button>
-        </Link>
-        <Link href={`/maps/${id}/vendors`}>
-          <Button variant="secondary">Manage vendors</Button>
-        </Link>
-        <Link href={`/maps/${id}/tag-alerts`}>
-          <Button variant="secondary">Tag-alert recipients</Button>
+      <nav className="flex flex-wrap gap-3">
+        {isAdmin && (
+          <>
+            <Link href={`/maps/${id}/workers`}>
+              <Button variant="secondary">Manage workers</Button>
+            </Link>
+            <Link href={`/maps/${id}/vendors`}>
+              <Button variant="secondary">Manage vendors</Button>
+            </Link>
+            <Link href={`/maps/${id}/tag-alerts`}>
+              <Button variant="secondary">Tag-alert recipients</Button>
+            </Link>
+          </>
+        )}
+        <Link href={`/maps/${id}/tag-alert-log`}>
+          <Button variant="secondary">Tag-alert log</Button>
         </Link>
         <a href={`${apiBase}/api/v1/maps/${id}/excel`} target="_blank" rel="noreferrer">
           <Button>Download Excel</Button>
@@ -79,6 +89,7 @@ export default function MapDetailPage() {
                       {t.replace(/_/g, ' ')}
                     </th>
                   ))}
+                  <th className="py-2 pr-4 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -102,6 +113,18 @@ export default function MapDetailPage() {
                         </td>
                       );
                     })}
+                    <td className="py-2 pr-4">
+                      {s.markerColor === 'red' ? (
+                        <Link
+                          href={`/maps/${id}/stores/${s.id}/completion`}
+                          className="text-sm text-brand hover:underline"
+                        >
+                          View
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

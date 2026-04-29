@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  Completion,
   Map as MapDto,
   MapSummary,
+  Photo,
+  PhotoKind,
   Store,
+  TagAlert,
   User,
   UserRole,
 } from '@map-app/shared';
@@ -147,3 +151,36 @@ export const useUnassignMap = (mapId: string) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['maps', mapId, 'assignments'] }),
   });
 };
+
+// ---- Stores / completions / photos ----
+
+export const useStore = (storeId: string | undefined) =>
+  useQuery({
+    queryKey: ['stores', storeId],
+    queryFn: () => api.get(`stores/${storeId}`).json<Store>(),
+    enabled: !!storeId,
+  });
+
+export const useStoreCompletion = (storeId: string | undefined) =>
+  useQuery({
+    queryKey: ['stores', storeId, 'completion'],
+    queryFn: () => api.get(`stores/${storeId}/completion`).json<Completion | null>(),
+    enabled: !!storeId,
+  });
+
+export const useStorePhotos = (storeId: string | undefined, kind?: PhotoKind) =>
+  useQuery({
+    queryKey: ['stores', storeId, 'photos', kind ?? 'all'],
+    queryFn: () =>
+      api.get(`stores/${storeId}/photos${kind ? `?kind=${kind}` : ''}`).json<Photo[]>(),
+    enabled: !!storeId,
+  });
+
+// ---- Tag alerts ----
+
+export const useMapTagAlerts = (mapId: string | undefined) =>
+  useQuery({
+    queryKey: ['maps', mapId, 'tag-alerts'],
+    queryFn: () => api.get(`maps/${mapId}/tag-alerts`).json<TagAlert[]>(),
+    enabled: !!mapId,
+  });
