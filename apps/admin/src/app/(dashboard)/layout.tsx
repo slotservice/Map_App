@@ -1,12 +1,19 @@
 'use client';
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserRole } from '@map-app/shared';
 import { useAuthStore } from '@/lib/auth';
 
-const ALL_NAV = [
+interface NavItem {
+  href: Route;
+  label: string;
+  roles: UserRole[];
+}
+
+const ALL_NAV: NavItem[] = [
   { href: '/maps', label: 'Maps', roles: [UserRole.ADMIN, UserRole.VENDOR, UserRole.VIEWER] },
   { href: '/workers', label: 'Workers', roles: [UserRole.ADMIN] },
   { href: '/vendors', label: 'Vendors', roles: [UserRole.ADMIN] },
@@ -35,7 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!hydrated || !user) return null;
 
-  const nav = ALL_NAV.filter((n) => n.roles.includes(user.role as UserRole));
+  const nav = ALL_NAV.filter((n) => (n.roles as UserRole[]).includes(user.role));
 
   return (
     <div className="flex min-h-screen">
