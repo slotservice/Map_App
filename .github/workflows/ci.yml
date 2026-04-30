@@ -37,6 +37,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Build (catches errors `tsc --noEmit` misses, e.g. nest's stricter build path)
+        run: pnpm build
+
   test:
     runs-on: ubuntu-latest
     services:
