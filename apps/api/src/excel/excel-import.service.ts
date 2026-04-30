@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { TaskStatus } from '@map-app/shared';
 
@@ -42,7 +43,10 @@ export class ExcelImportService {
   }): Promise<{ mapId: string; storeCount: number; taskColumns: string[]; countColumns: string[] }> {
     const wb = new ExcelJS.Workbook();
     try {
-      await wb.xlsx.load(input.fileBuffer);
+      // exceljs typings predate the generic Buffer<T> in @types/node ≥ 22,
+      // so a structural cast won't satisfy them. Pass through `any`.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await wb.xlsx.load(input.fileBuffer as any);
     } catch (err) {
       throw new BadRequestException(
         `Could not read Excel file: ${err instanceof Error ? err.message : 'unknown error'}`,
@@ -97,7 +101,7 @@ export class ExcelImportService {
             manager: row.fixed.manager ?? null,
             regional: row.fixed.regional ?? null,
             notes: row.fixed.notes ?? null,
-            raw: row.raw,
+            raw: row.raw as Prisma.InputJsonValue,
           },
         });
 
@@ -190,7 +194,14 @@ const FIXED_KEYS: Record<string, FixedKey> = {
 interface ParsedRow {
   storeNumber: string;
   storeName: string;
-  fixed: Partial<Record<FixedKey, string | number>> & {
+  fixed: {
+    state?: string;
+    address?: string;
+    zip?: string;
+    type?: string;
+    manager?: string;
+    regional?: string;
+    notes?: string;
     latitude?: number;
     longitude?: number;
   };

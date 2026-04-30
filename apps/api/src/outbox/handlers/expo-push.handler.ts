@@ -53,7 +53,7 @@ export class ExpoPushHandler {
   constructor(private readonly devices: DevicesService) {}
 
   async process(item: OutboxItem): Promise<void> {
-    const payload = item.payload as PushOutboxPayload;
+    const payload = item.payload as unknown as PushOutboxPayload;
     const tokens = await this.devices.tokensForUser(payload.userId);
 
     if (tokens.length === 0) {

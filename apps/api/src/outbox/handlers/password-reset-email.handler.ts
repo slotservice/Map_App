@@ -25,7 +25,7 @@ export class PasswordResetEmailHandler {
   ) {}
 
   async process(item: OutboxItem): Promise<void> {
-    const payload = item.payload as PasswordResetPayload;
+    const payload = item.payload as unknown as PasswordResetPayload;
     const adminBase = this.config.get<string>('ADMIN_PUBLIC_URL') ?? 'http://localhost:3000';
     const link = `${adminBase.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(payload.rawToken)}`;
 

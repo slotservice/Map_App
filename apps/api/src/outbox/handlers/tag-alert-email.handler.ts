@@ -22,7 +22,7 @@ export class TagAlertEmailHandler {
   ) {}
 
   async process(item: OutboxItem): Promise<void> {
-    const payload = item.payload as TagAlertOutboxPayload;
+    const payload = item.payload as unknown as TagAlertOutboxPayload;
     const data = await this.tagAlerts.loadForEmail(payload.tagAlertId);
     if (!data) {
       this.logger.warn(`Tag alert ${payload.tagAlertId} disappeared before email send`);

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { type CreateTagAlertRequest, type TagAlert } from '@map-app/shared';
 
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -70,7 +71,7 @@ export class TagAlertsService {
       // Enqueue email send. Worker picks it up out-of-band.
       const payload: TagAlertOutboxPayload = { tagAlertId: created.id };
       await tx.outboxItem.create({
-        data: { kind: 'tag_alert_email', payload },
+        data: { kind: 'tag_alert_email', payload: payload as unknown as Prisma.InputJsonValue },
       });
 
       return created;
