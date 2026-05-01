@@ -67,6 +67,29 @@ export class PhotosService {
   }
 
   async finalize(photoId: string, input: FinalizePhotoRequest): Promise<void> {
+    const photo = await this.prisma.photo.findUnique({ where: { id: photoId } });
+    if (!photo) throw new NotFoundException('Photo not found');
+    if (photo.finalizedAt) {
+      // Idempotent — same client may retry finalize after a network blip.
+      return;
+    }
+
+    // Verify the object actually landed in the bucket and matches the
+    // size declared at presign-time. Without this, a failed PUT (e.g.
+    // a SignatureDoesNotMatch the client ignored) would still flip the
+    // photo to "finalized" — and downstream readers would get 404s.
+    const head = await this.storage.headObject(photo.objectKey);
+    if (!head) {
+      throw new BadRequestException(
+        `Photo bytes not found in storage at ${photo.objectKey} — upload likely failed`,
+      );
+    }
+    if (head.sizeBytes !== photo.sizeBytes) {
+      throw new BadRequestException(
+        `Uploaded size ${head.sizeBytes} does not match presign-declared ${photo.sizeBytes}`,
+      );
+    }
+
     await this.prisma.photo.update({
       where: { id: photoId },
       data: { sha256: input.sha256, finalizedAt: new Date() },

@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /**
@@ -11,6 +16,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
  */
 @Injectable()
 export class StorageService {
+  private readonly logger = new Logger(StorageService.name);
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly publicBase: string;
@@ -26,7 +32,32 @@ export class StorageService {
         secretAccessKey: config.getOrThrow<string>('S3_SECRET_KEY'),
       },
       forcePathStyle: config.get<boolean>('S3_FORCE_PATH_STYLE') ?? false,
+      // AWS SDK ≥ 3.726 defaults to WHEN_SUPPORTED, which makes presign
+      // bake an `x-amz-checksum-crc32` header into the signature; clients
+      // that don't compute the checksum then get SignatureDoesNotMatch
+      // from MinIO + Cloudflare R2. Restrict to WHEN_REQUIRED so PutObject
+      // (no required checksum) goes through cleanly.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
     });
+  }
+
+  /** HEAD an object — returns size + ETag if present, null if missing. */
+  async headObject(key: string): Promise<{ sizeBytes: number; etag: string | null } | null> {
+    try {
+      const out = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      return {
+        sizeBytes: out.ContentLength ?? 0,
+        etag: out.ETag?.replace(/"/g, '') ?? null,
+      };
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name === 'NotFound' || name === 'NoSuchKey') return null;
+      this.logger.error(`HEAD ${key} failed: ${(err as Error).message}`);
+      throw err;
+    }
   }
 
   async presignUpload(
