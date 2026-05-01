@@ -26,7 +26,11 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --ignore-scripts skips postinstall hooks. We need it because
+        # react-native-screens (transitive dep of apps/mobile) postinstalls
+        # `bob build` which isn't on PATH; package code installs fine.
+        # Husky's `prepare` is also skipped — irrelevant in CI.
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Format check
         run: pnpm format:check
@@ -70,7 +74,11 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --ignore-scripts skips postinstall hooks. We need it because
+        # react-native-screens (transitive dep of apps/mobile) postinstalls
+        # `bob build` which isn't on PATH; package code installs fine.
+        # Husky's `prepare` is also skipped — irrelevant in CI.
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Build shared package
         run: pnpm --filter @map-app/shared build

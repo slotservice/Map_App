@@ -11,7 +11,7 @@ RUN pnpm fetch --prod=false
 
 FROM deps AS build
 COPY . .
-RUN pnpm install --offline --frozen-lockfile
+RUN pnpm install --offline --frozen-lockfile --ignore-scripts
 RUN pnpm --filter @map-app/shared build
 RUN pnpm --filter @map-app/api build
 RUN pnpm --filter @map-app/api prisma generate

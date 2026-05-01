@@ -22,6 +22,10 @@ coverage/
 .turbo/
 .next/
 
+# TypeScript incremental build cache — machine-state-dependent;
+# stale entries silently suppress emit on rebuild.
+*.tsbuildinfo
+
 # Env / secrets — NEVER commit
 .env
 .env.local
@@ -59,6 +63,7 @@ apps/api/.env.production
 .local-stack/data/
 .local-stack/*.log
 .local-stack/*.log.err
+.local-stack/.postgres-password
 
 # pnpm store (when project-local — see local-dev workaround for Windows AV)
 .pnpm-store/
