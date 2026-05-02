@@ -18,7 +18,9 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      await login(email, password);
+      // Trim defensively — paste-from-chat often picks up surrounding
+      // whitespace and the API treats whitespace as part of the password.
+      await login(email.trim(), password.trim());
       router.replace('/maps');
     } catch (err) {
       setError(await friendlyError(err));

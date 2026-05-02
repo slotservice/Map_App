@@ -36,16 +36,31 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const response = exception.getResponse();
-      const message =
+      const rawMessage =
         typeof response === 'string'
           ? response
           : ((response as { message?: string | string[] }).message ?? exception.message);
-      const body: ApiError = {
-        type: mapStatusToErrorCode(status),
-        title: Array.isArray(message) ? message.join('; ') : message,
-        status,
-        traceId,
-      };
+      const messageStr = Array.isArray(rawMessage) ? rawMessage.join('; ') : rawMessage;
+
+      // When the exception's message is itself a known ErrorCode (services
+      // throw `new UnauthorizedException(ErrorCode.INVALID_CREDENTIALS)`),
+      // promote it to `type` so the client can switch on it. Otherwise
+      // fall back to the broad status-class code with the raw message
+      // as the title.
+      const isKnownCode = (Object.values(ErrorCode) as string[]).includes(messageStr);
+      const body: ApiError = isKnownCode
+        ? {
+            type: messageStr as ErrorCode,
+            title: titleForCode(messageStr as ErrorCode),
+            status,
+            traceId,
+          }
+        : {
+            type: mapStatusToErrorCode(status),
+            title: messageStr,
+            status,
+            traceId,
+          };
       res.status(status).json(body);
       return;
     }
@@ -68,6 +83,23 @@ function mapStatusToErrorCode(status: number): ErrorCode {
   if (status === 404) return ErrorCode.NOT_FOUND;
   if (status === 409) return ErrorCode.CONFLICT;
   return ErrorCode.INTERNAL_ERROR;
+}
+
+function titleForCode(code: ErrorCode): string {
+  switch (code) {
+    case ErrorCode.INVALID_CREDENTIALS: return 'Invalid credentials';
+    case ErrorCode.OLD_PASSWORD_MISMATCH: return 'Old password does not match';
+    case ErrorCode.ACCOUNT_BLOCKED: return 'Account is blocked';
+    case ErrorCode.VALIDATION_FAILED: return 'Validation failed';
+    case ErrorCode.UNAUTHORIZED: return 'Unauthorized';
+    case ErrorCode.FORBIDDEN: return 'Forbidden';
+    case ErrorCode.NOT_FOUND: return 'Not found';
+    case ErrorCode.CONFLICT: return 'Conflict';
+    case ErrorCode.EXCEL_PARSE_FAILED: return 'Could not parse the Excel file';
+    case ErrorCode.PHOTO_UPLOAD_FAILED: return 'Photo upload failed';
+    case ErrorCode.COMPLETION_ALREADY_EXISTS: return 'This store is already complete';
+    case ErrorCode.INTERNAL_ERROR: return 'Internal server error';
+  }
 }
 
 function zodErrorsByPath(err: ZodError): Record<string, string[]> {
