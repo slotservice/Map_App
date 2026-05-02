@@ -1,21 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CreateMapDialog } from '@/components/create-map-dialog';
 import { useDeleteMap, useMaps } from '@/lib/queries';
 
+const PAGE_SIZE = 25;
+
 export default function MapsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const { data, isLoading, error } = useMaps();
   const deleteMap = useDeleteMap();
 
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return data;
+    return data.filter((m) => m.name.toLowerCase().includes(q));
+  }, [data, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   return (
     <section>
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Maps</h1>
-        <Button onClick={() => setDialogOpen(true)}>+ Create map</Button>
+        <div className="flex items-center gap-3">
+          <input
+            type="search"
+            placeholder="Search maps…"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="w-56 rounded-md border px-3 py-2 text-sm"
+            aria-label="Search maps"
+          />
+          <Button onClick={() => setDialogOpen(true)}>+ Create map</Button>
+        </div>
       </header>
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -29,7 +57,13 @@ export default function MapsPage() {
         </div>
       )}
 
-      {data && data.length > 0 && (
+      {data && data.length > 0 && filtered.length === 0 && (
+        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          No maps match &ldquo;{search}&rdquo;.
+        </div>
+      )}
+
+      {filtered.length > 0 && (
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b text-left text-muted-foreground">
@@ -42,7 +76,7 @@ export default function MapsPage() {
             </tr>
           </thead>
           <tbody>
-            {data.map((m) => (
+            {pageRows.map((m) => (
               <tr key={m.id} className="border-b">
                 <td className="py-3 pr-4 font-medium">
                   <Link href={`/maps/${m.id}`} className="hover:text-brand">
@@ -83,6 +117,30 @@ export default function MapsPage() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {totalPages > 1 && (
+        <nav className="mt-4 flex items-center justify-between text-sm" aria-label="Pagination">
+          <span className="text-muted-foreground">
+            Page {safePage} of {totalPages} ({filtered.length} map{filtered.length === 1 ? '' : 's'})
+          </span>
+          <div className="flex gap-2">
+            <button
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-md border px-3 py-1 disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              disabled={safePage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="rounded-md border px-3 py-1 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
       )}
 
       <CreateMapDialog open={dialogOpen} onOpenChange={setDialogOpen} />

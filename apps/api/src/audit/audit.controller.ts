@@ -18,13 +18,23 @@ export class AuditController {
     @Query('actorId') actorId?: string,
     @Query('resourceType') resourceType?: string,
     @Query('resourceId') resourceId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     return this.audit.list({
       actorId,
       resourceType,
       resourceId,
+      from: parseDateOrUndefined(from),
+      to: parseDateOrUndefined(to),
       page: Math.max(1, Number(page) || 1),
       pageSize: Math.min(200, Math.max(1, Number(pageSize) || 50)),
     });
   }
+}
+
+function parseDateOrUndefined(s: string | undefined): Date | undefined {
+  if (!s) return undefined;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }

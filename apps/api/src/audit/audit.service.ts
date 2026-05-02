@@ -41,6 +41,8 @@ export class AuditService {
     actorId?: string;
     resourceType?: string;
     resourceId?: string;
+    from?: Date;
+    to?: Date;
     page: number;
     pageSize: number;
   }): Promise<{
@@ -62,6 +64,14 @@ export class AuditService {
       ...(filter.actorId ? { actorId: filter.actorId } : {}),
       ...(filter.resourceType ? { resourceType: filter.resourceType } : {}),
       ...(filter.resourceId ? { resourceId: filter.resourceId } : {}),
+      ...(filter.from || filter.to
+        ? {
+            at: {
+              ...(filter.from ? { gte: filter.from } : {}),
+              ...(filter.to ? { lte: filter.to } : {}),
+            },
+          }
+        : {}),
     };
 
     const [rows, total] = await this.prisma.$transaction([

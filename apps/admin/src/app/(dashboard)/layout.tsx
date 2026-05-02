@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserRole } from '@map-app/shared';
 import { useAuthStore } from '@/lib/auth';
+import { useTheme } from '@/lib/theme';
 
 interface NavItem {
   href: Route;
@@ -31,6 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { user, hydrated, hydrate, logout } = useAuthStore();
+  const { theme, toggle } = useTheme();
 
   useEffect(() => {
     if (!hydrated) hydrate();
@@ -69,12 +71,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             );
           })}
         </nav>
-        <button
-          onClick={() => logout().then(() => router.replace('/login'))}
-          className="mt-6 w-full rounded-md border px-3 py-2 text-sm hover:bg-background"
-        >
-          Log out
-        </button>
+        <div className="mt-6 space-y-2">
+          <button
+            onClick={toggle}
+            type="button"
+            className="w-full rounded-md border px-3 py-2 text-sm hover:bg-background"
+          >
+            {theme === 'dark' ? '☀ Light mode' : '🌙 Dark mode'}
+          </button>
+          <button
+            onClick={() => logout().then(() => router.replace('/login'))}
+            className="w-full rounded-md border px-3 py-2 text-sm hover:bg-background"
+          >
+            Log out
+          </button>
+        </div>
       </aside>
       <main className="flex-1 p-8">{children}</main>
     </div>
