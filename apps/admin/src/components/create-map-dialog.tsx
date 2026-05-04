@@ -53,7 +53,7 @@ export function CreateMapDialog({
         }
       }}
       title="Create new map"
-      description="Upload an Excel sheet of stores. The first column must be Store #, the second Store Name, and Latitude / Longitude are required."
+      description="Upload an Excel sheet of stores. The first column must be Store / Store # / Store ID, the second Store Name (or just Name), and Latitude / Longitude columns are required."
     >
       <form onSubmit={onSubmit} className="space-y-4">
         <label className="block space-y-1">

@@ -241,8 +241,11 @@ export function classifyHeaders(headers: string[]): HeaderLayout {
   if (col0 !== 'store' && col0 !== 'storeid' && col0 !== 'storenumber') {
     errors.push(`Column A must be "Store" or "Store #" (got "${headers[0] ?? ''}")`);
   }
-  if (col1 !== 'storename') {
-    errors.push(`Column B must be "Store Name" (got "${headers[1] ?? ''}")`);
+  // Accept either "Store Name" or just "Name" — Matt's real client
+  // sheets ("Caseys Test 2.xlsx", "Week 1 2026.xlsx") use plain "Name"
+  // while the older "C Dilbeck Stores.xlsx" uses "Store Name".
+  if (col1 !== 'storename' && col1 !== 'name') {
+    errors.push(`Column B must be "Store Name" or "Name" (got "${headers[1] ?? ''}")`);
   }
 
   for (let i = 2; i < headers.length; i++) {

@@ -56,6 +56,58 @@ describe('classifyHeaders', () => {
     expect(layout.fixedColumnIndex.notes).toBe(8);
   });
 
+  it('accepts "Name" as column B (real client Caseys Test 2 layout)', () => {
+    const layout = classifyHeaders([
+      'Store',
+      'Name', // ← real client files use this, not "Store Name"
+      'State',
+      'Address',
+      'Zip',
+      'Latitude',
+      'Longitude',
+      'Type',
+      '', // blank column from legacy export
+      'Manager',
+      'Outside Paint Task',
+      'Gas Lid Task',
+      'Handicap',
+      'Canopy Poles',
+      'Crash Bars',
+      'Dog Bones',
+      'Gas Lids',
+      'Lines',
+    ]);
+    expect(layout.errors).toEqual([]);
+    expect(layout.taskColumns).toEqual(['Outside_Paint_Task', 'Gas_Lid_Task']);
+    expect(layout.countColumns).toEqual([
+      'Handicap',
+      'Canopy_Poles',
+      'Crash_Bars',
+      'Dog_Bones',
+      'Gas_Lids',
+      'Lines',
+    ]);
+  });
+
+  it('accepts "Store ID" + "Name" (real client Week 1 2026 layout)', () => {
+    const layout = classifyHeaders([
+      'Store ID',
+      'Name',
+      'State',
+      'Address',
+      'Zip',
+      'Latitude',
+      'Longitude',
+      'Handicap Task',
+      'Notes',
+      'Lines',
+    ]);
+    expect(layout.errors).toEqual([]);
+    expect(layout.taskColumns).toEqual(['Handicap_Task']);
+    expect(layout.countColumns).toEqual(['Lines']);
+    expect(layout.fixedColumnIndex.notes).toBe(8);
+  });
+
   it('rejects missing latitude', () => {
     const layout = classifyHeaders(['Store', 'Store Name', 'State', 'Longitude']);
     expect(layout.errors).toContain('Latitude column is required');
