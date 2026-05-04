@@ -6,6 +6,7 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -31,6 +32,8 @@ const importBodySchema = z.object({ name: z.string().min(1).max(100) });
 @ApiBearerAuth()
 @Controller('maps')
 export class ExcelController {
+  private readonly logger = new Logger(ExcelController.name);
+
   constructor(
     private readonly importer: ExcelImportService,
     private readonly exporter: ExcelExportService,
@@ -63,12 +66,23 @@ export class ExcelController {
     if (!file) throw new BadRequestException('Missing Excel file (multipart field "file")');
     const body = importBodySchema.parse(raw);
 
-    return this.importer.importMap({
-      name: body.name,
-      fileBuffer: file.buffer,
-      fileName: file.originalname,
-      createdById: user.id,
-    });
+    try {
+      return await this.importer.importMap({
+        name: body.name,
+        fileBuffer: file.buffer,
+        fileName: file.originalname,
+        createdById: user.id,
+      });
+    } catch (err) {
+      // Surface import failures to server logs so we can diagnose without
+      // having to ask the user to retry. The exception still propagates
+      // and the filter returns it to the client unchanged.
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Import "${body.name}" file="${file.originalname}" (${file.size}B) by ${user.email}: ${msg}`,
+      );
+      throw err;
+    }
   }
 
   @Get(':id/excel')

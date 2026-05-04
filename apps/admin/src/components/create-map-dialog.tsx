@@ -6,6 +6,7 @@ import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useImportMap } from '@/lib/queries';
+import { friendlyError } from '@/lib/friendly-error';
 
 export function CreateMapDialog({
   open,
@@ -36,8 +37,9 @@ export function CreateMapDialog({
       reset();
       router.push(`/maps/${res.mapId}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Import failed';
-      setError(msg);
+      // Parse the RFC-7807 API error so the user sees the real reason
+      // (e.g. "Latitude column is required") instead of "Bad Request".
+      setError(await friendlyError(err));
     }
   }
 
