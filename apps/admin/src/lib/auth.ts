@@ -11,6 +11,8 @@ interface AuthState {
   hydrate: () => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Replace the cached user (e.g. after self-profile update). */
+  setUser: (user: AuthUser) => void;
 }
 
 const ACCESS_KEY = 'mapapp.accessToken';
@@ -56,5 +58,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     window.localStorage.removeItem(REFRESH_KEY);
     window.localStorage.removeItem(USER_KEY);
     set({ user: null, tokens: null });
+  },
+
+  setUser: (user) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+    set({ user });
   },
 }));

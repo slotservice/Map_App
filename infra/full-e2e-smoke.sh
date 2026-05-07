@@ -305,6 +305,27 @@ DEV_DEL=$(curl -sS -m 10 -o /dev/null -w '%{http_code}' -X DELETE "$API/api/v1/d
 [ "$DEV_DEL" = "204" ] && ok "deregister device" || bad "deregister device → $DEV_DEL"
 
 # ============================================================
+section "13a. Legacy parity: self-profile update (PATCH /auth/profile)"
+# ============================================================
+PROF_BEFORE=$(jget $API/api/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"worker@fullcirclefm.local","password":"password123"}' | jq -r .user.phone)
+ok "worker phone before: ${PROF_BEFORE:-null}"
+NEW_PHONE="555-SMOKE-$TS"
+PR_RES=$(curl -sS -X PATCH $API/api/v1/auth/profile -H "Authorization: Bearer $WRK" \
+  -H 'Content-Type: application/json' -d "{\"phone\":\"$NEW_PHONE\",\"address\":\"123 E2E Ln\",\"state\":\"IA\",\"zip\":\"50000\"}")
+PR_PHONE=$(echo "$PR_RES" | jq -er .phone)
+[ "$PR_PHONE" = "$NEW_PHONE" ] && ok "worker self-updated phone → $NEW_PHONE" || bad "self-update FAILED: $PR_RES"
+# admin can read it back
+A_PHONE=$(jget "$API/api/v1/users?role=worker" -H "Authorization: Bearer $ADM" \
+  | jq -er '.[] | select(.email == "worker@fullcirclefm.local") | .phone')
+[ "$A_PHONE" = "$NEW_PHONE" ] && ok "admin sees updated phone via users list" || bad "admin sees: $A_PHONE"
+# self-update cannot rename or change role/status (subset enforced by Zod)
+NO_RENAME=$(probe -X PATCH $API/api/v1/auth/profile -H "Authorization: Bearer $WRK" \
+  -H 'Content-Type: application/json' -d '{"firstName":"Hack"}')
+[ "$NO_RENAME" = "200" ] && ok "self-update silently ignores firstName (extra fields stripped)" \
+  || bad "self-update with firstName → $NO_RENAME"
+
+# ============================================================
 section "13b. Legacy parity: Questions module (CRUD)"
 # ============================================================
 if [ -n "${MAP_ID:-}" ]; then

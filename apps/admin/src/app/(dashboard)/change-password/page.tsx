@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import { friendlyError } from '@/lib/friendly-error';
 
 export default function ChangePasswordPage() {
   const [oldPassword, setOld] = useState('');
@@ -27,7 +28,7 @@ export default function ChangePasswordPage() {
       setNew('');
       setConfirm('');
     } catch (err) {
-      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Failed' });
+      setMsg({ kind: 'err', text: await friendlyError(err) });
     } finally {
       setLoading(false);
     }

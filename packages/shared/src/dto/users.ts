@@ -23,6 +23,9 @@ export const createUserRequestSchema = z.object({
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
   phone: phoneSchema.optional(),
+  address: z.string().max(255).optional(),
+  state: z.string().max(20).optional(),
+  zip: z.string().max(20).optional(),
   role: z.nativeEnum(UserRole),
   /**
    * Optional initial password. If omitted, a random one is generated and
@@ -42,6 +45,19 @@ export const updateUserRequestSchema = z.object({
   status: z.nativeEnum(UserStatus).optional(),
 });
 export type UpdateUserRequest = z.infer<typeof updateUserRequestSchema>;
+
+/**
+ * Self-update of own profile. Subset of UpdateUserRequest — users
+ * cannot rename themselves or flip their own status; admins do that
+ * via the admin user endpoints.
+ */
+export const updateProfileRequestSchema = z.object({
+  phone: phoneSchema.optional(),
+  address: z.string().max(255).optional(),
+  state: z.string().max(20).optional(),
+  zip: z.string().max(20).optional(),
+});
+export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
 
 export const resetPasswordRequestSchema = z.object({
   /** If omitted the API generates a random password. */

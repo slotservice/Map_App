@@ -60,13 +60,13 @@ test.describe('navigation — every sidebar link loads', () => {
   });
 
   for (const linkLabel of [
-    'Maps',
-    'Workers',
-    'Vendors',
-    'Viewers',
+    'Map list',
+    'Worker list',
+    'Vendor list',
+    'Viewer list',
     'Audit log',
     'Profile',
-    'Change password',
+    'Change Password',
   ]) {
     test(`sidebar → ${linkLabel}`, async ({ page }) => {
       await page.getByRole('link', { name: linkLabel, exact: true }).click();
@@ -74,6 +74,36 @@ test.describe('navigation — every sidebar link loads', () => {
       await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 });
     });
   }
+});
+
+test.describe('profile self-edit (legacy parity)', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.getByRole('link', { name: 'Profile', exact: true }).click();
+  });
+
+  test('profile page is editable (not a TODO stub)', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /my profile/i })).toBeVisible();
+    // Must NOT show the TODO stub from the old version.
+    await expect(page.getByText(/TODO/i)).toHaveCount(0);
+    // Phone, address, state, zip inputs must be present and editable.
+    for (const label of ['Phone', 'Address', 'State', 'Zip']) {
+      const field = page.getByLabel(label);
+      await expect(field).toBeVisible();
+      await expect(field).toBeEditable();
+    }
+  });
+
+  test('profile save round-trip', async ({ page }) => {
+    const stamp = String(Date.now()).slice(-6);
+    const newPhone = `555-PW-${stamp}`;
+    await page.getByLabel('Phone').fill(newPhone);
+    await page.getByRole('button', { name: /^save$/i }).click();
+    await expect(page.getByText(/profile saved/i)).toBeVisible({ timeout: 10_000 });
+    // Reload — value should persist
+    await page.reload();
+    await expect(page.getByLabel('Phone')).toHaveValue(newPhone);
+  });
 });
 
 test.describe('maps list polish (search + pagination)', () => {

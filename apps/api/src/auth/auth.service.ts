@@ -9,6 +9,8 @@ import {
   type LoginRequest,
   type LoginResponse,
   type TokenPair,
+  type UpdateProfileRequest,
+  type User,
   type UserRole,
 } from '@map-app/shared';
 
@@ -46,6 +48,9 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
+      address: user.address,
+      state: user.state,
+      zip: user.zip,
       role: user.role,
       status: user.status,
     };
@@ -101,6 +106,37 @@ export class AuthService {
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
     // Invalidate all sessions on password change.
     await this.revokeAll(userId);
+  }
+
+  /**
+   * Self-update of own profile fields. Mirrors the legacy /profile/update.
+   * Only the user's contact-info subset is editable here; admins still
+   * own renames and status changes via the admin user endpoints.
+   */
+  async updateProfile(userId: string, input: UpdateProfileRequest): Promise<User> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(input.phone !== undefined && { phone: input.phone || null }),
+        ...(input.address !== undefined && { address: input.address || null }),
+        ...(input.state !== undefined && { state: input.state || null }),
+        ...(input.zip !== undefined && { zip: input.zip || null }),
+      },
+    });
+    return {
+      id: updated.id,
+      email: updated.email,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      phone: updated.phone,
+      address: updated.address,
+      state: updated.state,
+      zip: updated.zip,
+      role: updated.role,
+      status: updated.status,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    };
   }
 
   /**

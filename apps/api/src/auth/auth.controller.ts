@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   changePasswordRequestSchema,
@@ -6,6 +6,7 @@ import {
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
   refreshTokenRequestSchema,
+  updateProfileRequestSchema,
   type ChangePasswordRequest,
   type ForgotPasswordRequest,
   type LoginRequest,
@@ -13,6 +14,8 @@ import {
   type PasswordResetConfirmRequest,
   type RefreshTokenRequest,
   type TokenPair,
+  type UpdateProfileRequest,
+  type User,
 } from '@map-app/shared';
 
 import { AuthService } from './auth.service.js';
@@ -56,6 +59,14 @@ export class AuthController {
     @Body(new ZodValidationPipe(changePasswordRequestSchema)) body: ChangePasswordRequest,
   ): Promise<void> {
     await this.auth.changePassword(user.id, body.oldPassword, body.newPassword);
+  }
+
+  @Patch('profile')
+  async updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(updateProfileRequestSchema)) body: UpdateProfileRequest,
+  ): Promise<User> {
+    return this.auth.updateProfile(user.id, body);
   }
 
   @Public()

@@ -27,6 +27,9 @@ export const authUserSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
   phone: z.string().nullable(),
+  address: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  zip: z.string().nullable().optional(),
   role: z.nativeEnum(UserRole),
   status: z.nativeEnum(UserStatus),
 });

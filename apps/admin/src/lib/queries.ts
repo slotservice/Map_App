@@ -11,6 +11,7 @@ import type {
   Question,
   Store,
   TagAlert,
+  UpdateProfileRequest,
   UpdateQuestionRequest,
   UpdateStoreRequest,
   User,
@@ -79,6 +80,17 @@ export const useUpdateMap = () => {
   });
 };
 
+// ---- Self-profile ----
+
+export const useUpdateProfile = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateProfileRequest) =>
+      api.patch('auth/profile', { json: input }).json<User>(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+};
+
 // ---- Users ----
 
 export const useUsers = (role: UserRole) =>
@@ -95,6 +107,9 @@ export const useCreateUser = () => {
       firstName: string;
       lastName: string;
       phone?: string;
+      address?: string;
+      state?: string;
+      zip?: string;
       role: UserRole;
       initialPassword?: string;
     }) =>

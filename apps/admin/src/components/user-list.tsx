@@ -12,6 +12,7 @@ import {
   useUpdateUser,
   useUsers,
 } from '@/lib/queries';
+import { friendlyError } from '@/lib/friendly-error';
 
 /**
  * Reusable list+CRUD UI for either workers or vendors. The only
@@ -49,6 +50,7 @@ export function UserList({ role, label }: { role: UserRole; label: string }) {
               <th className="py-2 pr-4 font-medium">Name</th>
               <th className="py-2 pr-4 font-medium">Email</th>
               <th className="py-2 pr-4 font-medium">Phone</th>
+              <th className="py-2 pr-4 font-medium">Address</th>
               <th className="py-2 pr-4 font-medium">Status</th>
               <th className="py-2 pr-4 font-medium">Created</th>
               <th className="py-2 pr-4 font-medium"></th>
@@ -62,6 +64,9 @@ export function UserList({ role, label }: { role: UserRole; label: string }) {
                 </td>
                 <td className="py-3 pr-4">{u.email}</td>
                 <td className="py-3 pr-4 text-muted-foreground">{u.phone ?? '—'}</td>
+                <td className="py-3 pr-4 text-muted-foreground">
+                  {[u.address, u.state, u.zip].filter(Boolean).join(', ') || '—'}
+                </td>
                 <td className="py-3 pr-4">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
@@ -140,6 +145,9 @@ function CreateUserDialog({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [state, setState] = useState('');
+  const [zip, setZip] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
 
@@ -148,6 +156,9 @@ function CreateUserDialog({
     setFirstName('');
     setLastName('');
     setPhone('');
+    setAddress('');
+    setState('');
+    setZip('');
     setError(null);
     setCreatedPassword(null);
   }
@@ -161,11 +172,14 @@ function CreateUserDialog({
         firstName,
         lastName,
         phone: phone || undefined,
+        address: address || undefined,
+        state: state || undefined,
+        zip: zip || undefined,
         role,
       });
       setCreatedPassword(res.initialPassword);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed');
+      setError(await friendlyError(err));
     }
   }
 
@@ -226,7 +240,25 @@ function CreateUserDialog({
             <span className="text-sm font-medium">Phone (optional)</span>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">Address (optional)</span>
+            <Input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              maxLength={255}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1">
+              <span className="text-sm font-medium">State (optional)</span>
+              <Input value={state} onChange={(e) => setState(e.target.value)} maxLength={20} />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-sm font-medium">Zip (optional)</span>
+              <Input value={zip} onChange={(e) => setZip(e.target.value)} maxLength={20} />
+            </label>
+          </div>
+          {error && <p className="text-sm text-red-600 whitespace-pre-line">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button
               type="button"
@@ -268,7 +300,7 @@ function ResetPasswordDialog({
       });
       setResult(res.newPassword);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed');
+      setError(await friendlyError(err));
     }
   }
 
