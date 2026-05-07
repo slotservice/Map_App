@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { PropertyImageDialog } from '@/components/property-image-dialog';
-import { useMap, useMapStores } from '@/lib/queries';
+import { StoreEditDialog } from '@/components/store-edit-dialog';
+import { AdminCompleteDialog } from '@/components/admin-complete-dialog';
+import { useDeleteStore, useMap, useMapStores } from '@/lib/queries';
 import { useAuthStore } from '@/lib/auth';
 import { UserRole, type MarkerColor, type Store } from '@map-app/shared';
 
@@ -23,13 +25,20 @@ const COLOR_BG: Record<MarkerColor, string> = {
   red: 'bg-red-600',
 };
 
+type DialogMode =
+  | { kind: 'create-store' }
+  | { kind: 'edit-store'; store: Store }
+  | { kind: 'complete-store'; store: Store }
+  | { kind: 'property'; store: Store };
+
 export default function MapDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: map, isLoading: mapLoading } = useMap(id);
   const { data: stores, isLoading: storesLoading } = useMapStores(id);
   const role = useAuthStore((s) => s.user?.role);
   const isAdmin = role === UserRole.ADMIN;
-  const [propertyTarget, setPropertyTarget] = useState<Store | null>(null);
+  const deleteStore = useDeleteStore(id);
+  const [dialog, setDialog] = useState<DialogMode | null>(null);
 
   if (mapLoading) return <p className="text-sm text-muted-foreground">Loading map…</p>;
   if (!map) return <p className="text-sm text-red-600">Map not found.</p>;
@@ -50,8 +59,14 @@ export default function MapDetailPage() {
       </header>
 
       <nav className="flex flex-wrap gap-3">
+        <Link href={`/maps/${id}/view`}>
+          <Button>View on map</Button>
+        </Link>
         {isAdmin && (
           <>
+            <Button variant="secondary" onClick={() => setDialog({ kind: 'create-store' })}>
+              + Add new store
+            </Button>
             <Link href={`/maps/${id}/workers`}>
               <Button variant="secondary">Manage workers</Button>
             </Link>
@@ -60,6 +75,9 @@ export default function MapDetailPage() {
             </Link>
             <Link href={`/maps/${id}/viewers`}>
               <Button variant="secondary">Manage viewers</Button>
+            </Link>
+            <Link href={`/maps/${id}/questions`}>
+              <Button variant="secondary">Questions</Button>
             </Link>
             <Link href={`/maps/${id}/tag-alerts`}>
               <Button variant="secondary">Tag-alert recipients</Button>
@@ -70,7 +88,7 @@ export default function MapDetailPage() {
           <Button variant="secondary">Tag-alert log</Button>
         </Link>
         <a href={`${apiBase}/api/v1/maps/${id}/excel`} target="_blank" rel="noreferrer">
-          <Button>Download Excel</Button>
+          <Button variant="secondary">Download Excel</Button>
         </a>
       </nav>
 
@@ -96,7 +114,7 @@ export default function MapDetailPage() {
                     </th>
                   ))}
                   <th className="py-2 pr-4 font-medium">Property</th>
-                  <th className="py-2 pr-4 font-medium"></th>
+                  <th className="py-2 pr-4 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -123,7 +141,7 @@ export default function MapDetailPage() {
                     <td className="py-2 pr-4">
                       {isAdmin ? (
                         <button
-                          onClick={() => setPropertyTarget(s)}
+                          onClick={() => setDialog({ kind: 'property', store: s })}
                           className="flex items-center gap-2 text-sm text-brand hover:underline"
                         >
                           {s.propertyImageUrl ? (
@@ -154,16 +172,49 @@ export default function MapDetailPage() {
                       )}
                     </td>
                     <td className="py-2 pr-4">
-                      {s.markerColor === 'red' ? (
-                        <Link
-                          href={`/maps/${id}/stores/${s.id}/completion`}
-                          className="text-sm text-brand hover:underline"
-                        >
-                          View
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {isAdmin && (
+                          <button
+                            onClick={() => setDialog({ kind: 'edit-store', store: s })}
+                            className="rounded bg-cyan-600 px-2 py-1 text-xs font-medium text-white hover:bg-cyan-700"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {isAdmin && s.markerColor !== 'red' && (
+                          <button
+                            onClick={() => setDialog({ kind: 'complete-store', store: s })}
+                            className="rounded bg-amber-500 px-2 py-1 text-xs font-medium text-white hover:bg-amber-600"
+                          >
+                            Complete
+                          </button>
+                        )}
+                        {s.markerColor === 'red' && (
+                          <Link
+                            href={`/maps/${id}/stores/${s.id}/completion`}
+                            className="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                          >
+                            Detail
+                          </Link>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Soft-delete store #${s.storeNumber} ${s.storeName}?`,
+                                )
+                              ) {
+                                deleteStore.mutate(s.id);
+                              }
+                            }}
+                            disabled={deleteStore.isPending}
+                            className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -173,15 +224,42 @@ export default function MapDetailPage() {
         )}
       </section>
 
-      {propertyTarget && (
+      {dialog?.kind === 'property' && (
         <PropertyImageDialog
-          open={!!propertyTarget}
-          onOpenChange={(o) => !o && setPropertyTarget(null)}
-          storeId={propertyTarget.id}
+          open
+          onOpenChange={(o) => !o && setDialog(null)}
+          storeId={dialog.store.id}
           mapId={id}
-          storeNumber={propertyTarget.storeNumber}
-          storeName={propertyTarget.storeName}
-          currentUrl={propertyTarget.propertyImageUrl}
+          storeNumber={dialog.store.storeNumber}
+          storeName={dialog.store.storeName}
+          currentUrl={dialog.store.propertyImageUrl}
+        />
+      )}
+      {dialog?.kind === 'create-store' && (
+        <StoreEditDialog
+          open
+          onOpenChange={(o) => !o && setDialog(null)}
+          mode="create"
+          mapId={id}
+          taskColumns={map.taskColumns}
+        />
+      )}
+      {dialog?.kind === 'edit-store' && (
+        <StoreEditDialog
+          open
+          onOpenChange={(o) => !o && setDialog(null)}
+          mode="edit"
+          mapId={id}
+          taskColumns={map.taskColumns}
+          store={dialog.store}
+        />
+      )}
+      {dialog?.kind === 'complete-store' && (
+        <AdminCompleteDialog
+          open
+          onOpenChange={(o) => !o && setDialog(null)}
+          store={dialog.store}
+          map={map}
         />
       )}
     </section>

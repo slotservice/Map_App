@@ -1,12 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AdminCompleteStoreRequest,
   Completion,
+  CreateQuestionRequest,
+  CreateStoreRequest,
   Map as MapDto,
   MapSummary,
   Photo,
   PhotoKind,
+  Question,
   Store,
   TagAlert,
+  UpdateQuestionRequest,
+  UpdateStoreRequest,
   User,
   UserRole,
 } from '@map-app/shared';
@@ -56,6 +62,20 @@ export const useDeleteMap = () => {
       await api.delete(`maps/${id}`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['maps'] }),
+  });
+};
+
+export const useUpdateMap = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; name?: string; tagAlertRecipients?: string[] }) => {
+      const { id, ...body } = input;
+      return api.patch(`maps/${id}`, { json: body }).json<MapDto>();
+    },
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ['maps'] });
+      qc.invalidateQueries({ queryKey: ['maps', id] });
+    },
   });
 };
 
@@ -184,3 +204,93 @@ export const useMapTagAlerts = (mapId: string | undefined) =>
     queryFn: () => api.get(`maps/${mapId}/tag-alerts`).json<TagAlert[]>(),
     enabled: !!mapId,
   });
+
+// ---- Stores CRUD ----
+
+export const useCreateStore = (mapId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateStoreRequest) =>
+      api.post(`maps/${mapId}/stores`, { json: input }).json<Store>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['maps', mapId, 'stores'] });
+      qc.invalidateQueries({ queryKey: ['maps'] });
+    },
+  });
+};
+
+export const useUpdateStore = (mapId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string } & UpdateStoreRequest) => {
+      const { id, ...body } = input;
+      return api.patch(`stores/${id}`, { json: body }).json<Store>();
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['maps', mapId, 'stores'] });
+      qc.invalidateQueries({ queryKey: ['stores', vars.id] });
+    },
+  });
+};
+
+export const useDeleteStore = (mapId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`stores/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['maps', mapId, 'stores'] });
+      qc.invalidateQueries({ queryKey: ['maps'] });
+    },
+  });
+};
+
+export const useAdminComplete = (mapId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { storeId: string; body: AdminCompleteStoreRequest }) =>
+      api.post(`stores/${input.storeId}/admin-complete`, { json: input.body }).json<Completion>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['maps', mapId, 'stores'] });
+      qc.invalidateQueries({ queryKey: ['maps'] });
+    },
+  });
+};
+
+// ---- Questions ----
+
+export const useMapQuestions = (mapId: string | undefined) =>
+  useQuery({
+    queryKey: ['maps', mapId, 'questions'],
+    queryFn: () => api.get(`maps/${mapId}/questions`).json<Question[]>(),
+    enabled: !!mapId,
+  });
+
+export const useCreateQuestion = (mapId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateQuestionRequest) =>
+      api.post(`maps/${mapId}/questions`, { json: input }).json<Question>(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['maps', mapId, 'questions'] }),
+  });
+};
+
+export const useUpdateQuestion = (mapId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; body: UpdateQuestionRequest }) =>
+      api.patch(`questions/${input.id}`, { json: input.body }).json<Question>(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['maps', mapId, 'questions'] }),
+  });
+};
+
+export const useDeleteQuestion = (mapId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`questions/${id}`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['maps', mapId, 'questions'] }),
+  });
+};

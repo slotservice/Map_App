@@ -305,12 +305,71 @@ DEV_DEL=$(curl -sS -m 10 -o /dev/null -w '%{http_code}' -X DELETE "$API/api/v1/d
 [ "$DEV_DEL" = "204" ] && ok "deregister device" || bad "deregister device → $DEV_DEL"
 
 # ============================================================
+section "13b. Legacy parity: Questions module (CRUD)"
+# ============================================================
+if [ -n "${MAP_ID:-}" ]; then
+  Q_LIST_EMPTY=$(jget $API/api/v1/maps/$MAP_ID/questions -H "Authorization: Bearer $ADM")
+  [ "$(echo "$Q_LIST_EMPTY" | jq 'length')" = "0" ] && ok "questions list initially empty" || bad "questions list non-empty: $Q_LIST_EMPTY"
+
+  Q_CREATE=$(jget -X POST $API/api/v1/maps/$MAP_ID/questions -H "Authorization: Bearer $ADM" -H 'Content-Type: application/json' -d '{"title":"Smoke Q1"}')
+  Q_ID=$(echo "$Q_CREATE" | jq -er '.id' 2>/dev/null)
+  [ -n "${Q_ID:-}" ] && ok "create question → $Q_ID" || bad "create question FAILED: $Q_CREATE"
+
+  Q_UPDATE=$(jpost_status $API/api/v1/questions/$Q_ID "{\"title\":\"Smoke Q1 (edited)\"}" -H "Authorization: Bearer $ADM" -X PATCH)
+  [ "$Q_UPDATE" = "200" ] && ok "update question → 200" || bad "update question → $Q_UPDATE"
+
+  Q_LIST=$(jget $API/api/v1/maps/$MAP_ID/questions -H "Authorization: Bearer $ADM")
+  Q_TITLE=$(echo "$Q_LIST" | jq -r '.[0].title')
+  [ "$Q_TITLE" = "Smoke Q1 (edited)" ] && ok "question title persisted" || bad "question title wrong: $Q_TITLE"
+
+  # worker MUST NOT be able to mutate questions (admin-only) but CAN read
+  Q_WORKER_READ=$(probe $API/api/v1/maps/$MAP_ID/questions -H "Authorization: Bearer $WRK")
+  [ "$Q_WORKER_READ" = "200" ] && ok "worker can read questions (assigned)" || bad "worker read questions → $Q_WORKER_READ"
+  Q_WORKER_CREATE=$(probe -X POST $API/api/v1/maps/$MAP_ID/questions -H "Authorization: Bearer $WRK" -H 'Content-Type: application/json' -d '{"title":"x"}')
+  [ "$Q_WORKER_CREATE" = "403" ] && ok "worker blocked from create question (403)" || bad "worker create question → $Q_WORKER_CREATE (expected 403)"
+
+  Q_DEL=$(curl -sS -m 10 -o /dev/null -w '%{http_code}' -X DELETE $API/api/v1/questions/$Q_ID -H "Authorization: Bearer $ADM")
+  [ "$Q_DEL" = "204" ] && ok "delete question → 204" || bad "delete question → $Q_DEL"
+fi
+
+# ============================================================
+section "13c. Legacy parity: Store CRUD (add/edit/delete)"
+# ============================================================
+if [ -n "${MAP_ID:-}" ]; then
+  S_BODY='{"storeNumber":"E2E-9999","storeName":"E2E Manual Add","state":"IA","address":"1 Smoke Ln","zip":"50000","latitude":41.5,"longitude":-93.5,"type":"Test","manager":"Tester"}'
+  S_CREATE=$(jget -X POST $API/api/v1/maps/$MAP_ID/stores -H "Authorization: Bearer $ADM" -H 'Content-Type: application/json' -d "$S_BODY")
+  S_ID=$(echo "$S_CREATE" | jq -er '.id' 2>/dev/null)
+  [ -n "${S_ID:-}" ] && ok "manual add store → $S_ID" || bad "manual add store FAILED: $S_CREATE"
+
+  # duplicate storeNumber within same map should 409
+  S_DUP=$(jpost_status $API/api/v1/maps/$MAP_ID/stores "$S_BODY" -H "Authorization: Bearer $ADM")
+  [ "$S_DUP" = "409" ] && ok "duplicate storeNumber rejected (409)" || bad "duplicate storeNumber → $S_DUP (expected 409)"
+
+  if [ -n "${S_ID:-}" ]; then
+    S_UPDATE=$(jpost_status $API/api/v1/stores/$S_ID '{"storeName":"E2E Renamed","manager":"Tester2"}' -H "Authorization: Bearer $ADM" -X PATCH)
+    [ "$S_UPDATE" = "200" ] && ok "edit store → 200" || bad "edit store → $S_UPDATE"
+    S_GET=$(jget $API/api/v1/stores/$S_ID -H "Authorization: Bearer $ADM" | jq -r '.storeName')
+    [ "$S_GET" = "E2E Renamed" ] && ok "store rename persisted" || bad "store rename mismatch: $S_GET"
+
+    # worker should NOT be able to edit
+    S_WORKER_EDIT=$(probe -X PATCH $API/api/v1/stores/$S_ID -H "Authorization: Bearer $WRK" -H 'Content-Type: application/json' -d '{"storeName":"x"}')
+    [ "$S_WORKER_EDIT" = "403" ] && ok "worker blocked from edit store (403)" || bad "worker edit store → $S_WORKER_EDIT (expected 403)"
+
+    S_DEL=$(curl -sS -m 10 -o /dev/null -w '%{http_code}' -X DELETE $API/api/v1/stores/$S_ID -H "Authorization: Bearer $ADM")
+    [ "$S_DEL" = "204" ] && ok "soft-delete store → 204" || bad "soft-delete store → $S_DEL"
+    # listing should now exclude it
+    S_LIST_ABSENT=$(jget $API/api/v1/maps/$MAP_ID/stores -H "Authorization: Bearer $ADM" | jq --arg id "$S_ID" 'map(select(.id == $id)) | length')
+    [ "$S_LIST_ABSENT" = "0" ] && ok "deleted store hidden from list" || bad "deleted store still listed: $S_LIST_ABSENT row(s)"
+  fi
+fi
+
+# ============================================================
 section "14. Admin web pages (nginx-fronted)"
 # ============================================================
 for path in /login /forgot-password /reset-password \
             /maps /workers /vendors /viewers /audit-log /change-password /profile \
-            "/maps/$MAP_ID" "/maps/$MAP_ID/workers" "/maps/$MAP_ID/vendors" "/maps/$MAP_ID/viewers" \
-            "/maps/$MAP_ID/tag-alerts" "/maps/$MAP_ID/tag-alert-log"; do
+            "/maps/$MAP_ID" "/maps/$MAP_ID/view" "/maps/$MAP_ID/workers" "/maps/$MAP_ID/vendors" "/maps/$MAP_ID/viewers" \
+            "/maps/$MAP_ID/tag-alerts" "/maps/$MAP_ID/tag-alert-log" "/maps/$MAP_ID/questions"; do
   CODE=$(probe "$PUBLIC$path")
   if [ "$CODE" = "200" ]; then
     ok "$path → 200"

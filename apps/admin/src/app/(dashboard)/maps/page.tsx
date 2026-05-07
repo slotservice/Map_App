@@ -2,18 +2,25 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import type { Route } from 'next';
 import { Button } from '@/components/ui/button';
 import { CreateMapDialog } from '@/components/create-map-dialog';
+import { EditMapDialog } from '@/components/edit-map-dialog';
 import { useDeleteMap, useMaps } from '@/lib/queries';
+import { UserRole, type MapSummary } from '@map-app/shared';
+import { useAuthStore } from '@/lib/auth';
 
 const PAGE_SIZE = 25;
 
 export default function MapsPage() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<MapSummary | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const { data, isLoading, error } = useMaps();
   const deleteMap = useDeleteMap();
+  const role = useAuthStore((s) => s.user?.role);
+  const isAdmin = role === UserRole.ADMIN;
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -42,7 +49,7 @@ export default function MapsPage() {
             className="w-56 rounded-md border px-3 py-2 text-sm"
             aria-label="Search maps"
           />
-          <Button onClick={() => setDialogOpen(true)}>+ Create map</Button>
+          {isAdmin && <Button onClick={() => setCreateOpen(true)}>+ Create map</Button>}
         </div>
       </header>
 
@@ -52,7 +59,14 @@ export default function MapsPage() {
       {data && data.length === 0 && (
         <div className="rounded-lg border border-dashed p-12 text-center">
           <p className="text-muted-foreground">
-            No maps yet. Click <strong>Create map</strong> to upload your first Excel.
+            No maps yet.{' '}
+            {isAdmin ? (
+              <>
+                Click <strong>Create map</strong> to upload your first Excel.
+              </>
+            ) : (
+              "You haven't been assigned to any maps yet."
+            )}
           </p>
         </div>
       )}
@@ -72,7 +86,7 @@ export default function MapsPage() {
               <th className="py-2 pr-4 font-medium">Completed</th>
               <th className="py-2 pr-4 font-medium">Assigned</th>
               <th className="py-2 pr-4 font-medium">Created</th>
-              <th className="py-2 pr-4 font-medium"></th>
+              <th className="py-2 pr-4 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -97,20 +111,45 @@ export default function MapsPage() {
                   {new Date(m.createdAt).toLocaleDateString()}
                 </td>
                 <td className="py-3 pr-4">
-                  <div className="flex gap-2">
-                    <Link href={`/maps/${m.id}`} className="text-sm text-brand hover:underline">
-                      Open
-                    </Link>
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Delete "${m.name}"? Soft-delete (reversible).`)) {
-                          deleteMap.mutate(m.id);
-                        }
-                      }}
-                      className="text-sm text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
+                  <div className="flex flex-wrap gap-1.5">
+                    <ActionLink href={`/maps/${m.id}`} variant="primary" label="Detail" />
+                    <ActionLink
+                      href={`/maps/${m.id}/view`}
+                      variant="info"
+                      label="Map"
+                      icon="globe"
+                    />
+                    {isAdmin && (
+                      <>
+                        <ActionLink
+                          href={`/maps/${m.id}/workers`}
+                          variant="warning"
+                          label="Manage Workers"
+                        />
+                        <ActionLink
+                          href={`/maps/${m.id}/tag-alerts`}
+                          variant="warning"
+                          label="Tag Alerts"
+                        />
+                        <ActionButton
+                          onClick={() => setEditTarget(m)}
+                          variant="info"
+                          label="Edit"
+                        />
+                        <ActionButton
+                          onClick={() => {
+                            if (
+                              window.confirm(`Delete "${m.name}"? Soft-delete (reversible).`)
+                            ) {
+                              deleteMap.mutate(m.id);
+                            }
+                          }}
+                          variant="danger"
+                          label="Delete"
+                          disabled={deleteMap.isPending}
+                        />
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -143,7 +182,88 @@ export default function MapsPage() {
         </nav>
       )}
 
-      <CreateMapDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <CreateMapDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {editTarget && (
+        <EditMapDialog
+          open={!!editTarget}
+          onOpenChange={(o) => !o && setEditTarget(null)}
+          mapId={editTarget.id}
+          currentName={editTarget.name}
+        />
+      )}
     </section>
+  );
+}
+
+type ActionVariant = 'primary' | 'info' | 'warning' | 'danger';
+
+const ACTION_CLASSES: Record<ActionVariant, string> = {
+  primary: 'bg-blue-600 text-white hover:bg-blue-700',
+  info: 'bg-cyan-600 text-white hover:bg-cyan-700',
+  warning: 'bg-amber-500 text-white hover:bg-amber-600',
+  danger: 'bg-red-600 text-white hover:bg-red-700',
+};
+
+const ACTION_BASE =
+  'inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+
+function ActionLink({
+  href,
+  variant,
+  label,
+  icon,
+}: {
+  href: string;
+  variant: ActionVariant;
+  label: string;
+  icon?: 'globe';
+}) {
+  // typedRoutes treats dynamic strings as opaque; we know the URL is well-formed
+  // because the only callers build it from a verified mapId.
+  return (
+    <Link href={href as Route} className={`${ACTION_BASE} ${ACTION_CLASSES[variant]}`}>
+      {icon === 'globe' && <GlobeIcon />}
+      {label}
+    </Link>
+  );
+}
+
+function ActionButton({
+  onClick,
+  variant,
+  label,
+  disabled,
+}: {
+  onClick: () => void;
+  variant: ActionVariant;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`${ACTION_BASE} ${ACTION_CLASSES[variant]}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20M12 2a15 15 0 010 20M12 2a15 15 0 000 20" />
+    </svg>
   );
 }

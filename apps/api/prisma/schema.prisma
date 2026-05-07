@@ -140,6 +140,7 @@ model Map {
   createdBy   User?           @relation("CreatedBy", fields: [createdById], references: [id])
   stores      Store[]
   assignments MapAssignment[]
+  questions   Question[]
 
   @@map("maps")
 }
@@ -371,4 +372,22 @@ model AuditLog {
   @@index([resourceType, resourceId])
   @@index([actorId])
   @@map("audit_log")
+}
+
+// =====================================================================
+// Questions (per-map free-form interview questions; legacy parity)
+// =====================================================================
+
+model Question {
+  id        String    @id @default(uuid()) @db.Uuid
+  mapId     String    @map("map_id") @db.Uuid
+  title     String    @db.VarChar(500)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  map Map @relation(fields: [mapId], references: [id], onDelete: Cascade)
+
+  @@index([mapId])
+  @@map("questions")
 }

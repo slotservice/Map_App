@@ -1,11 +1,18 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { TaskStatus, type CompleteStoreRequest, type Completion } from '@map-app/shared';
+import {
+  TaskStatus,
+  type AdminCompleteStoreRequest,
+  type CompleteStoreRequest,
+  type Completion,
+  UserRole,
+} from '@map-app/shared';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -140,6 +147,126 @@ export class CompletionService {
     });
 
     this.logger.log(`Store ${input.storeId} completed by user ${input.user.id}`);
+
+    return this.toDto(completion.id);
+  }
+
+  /**
+   * Admin-only manual completion. Mirrors `complete()` but lets the admin
+   * attribute the completion to a specific worker (who must be assigned
+   * to the parent map). Used to record visits that, for whatever reason,
+   * weren't logged through the worker's mobile app.
+   */
+  async adminComplete(input: {
+    actor: AuthenticatedUser;
+    storeId: string;
+    body: AdminCompleteStoreRequest;
+  }): Promise<Completion> {
+    if (input.actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Admin role required');
+    }
+
+    const store = await this.prisma.store.findUnique({
+      where: { id: input.storeId },
+      include: { map: true, tasks: true, completions: { take: 1 } },
+    });
+    if (!store || store.deletedAt) throw new NotFoundException('Store not found');
+    if (store.completions.length > 0) {
+      throw new ConflictException('Store already has a completion record');
+    }
+
+    // Verify the worker exists and is assigned to this store's map.
+    const assignment = await this.prisma.mapAssignment.findUnique({
+      where: { mapId_userId: { mapId: store.mapId, userId: input.body.workerId } },
+      include: { user: true },
+    });
+    if (!assignment) {
+      throw new BadRequestException('workerId is not assigned to this store\'s map');
+    }
+    if (assignment.user.deletedAt) {
+      throw new BadRequestException('workerId references a deleted user');
+    }
+
+    const expectedCounts = (store.map.countColumns as string[]) ?? [];
+    for (const k of Object.keys(input.body.counts)) {
+      if (!expectedCounts.includes(k)) {
+        throw new BadRequestException(
+          `Unknown count column "${k}" — map expects: ${expectedCounts.join(', ') || '(none)'}`,
+        );
+      }
+    }
+
+    const allPhotoIds = [
+      input.body.signaturePhotoId,
+      ...input.body.beforePhotoIds,
+      ...input.body.afterPhotoIds,
+    ];
+    const photos = await this.prisma.photo.findMany({
+      where: { id: { in: allPhotoIds } },
+    });
+    if (photos.length !== allPhotoIds.length) {
+      throw new BadRequestException('One or more photoIds are invalid');
+    }
+    for (const p of photos) {
+      if (p.storeId !== input.storeId) {
+        throw new BadRequestException(`Photo ${p.id} belongs to a different store`);
+      }
+    }
+    const sig = photos.find((p) => p.id === input.body.signaturePhotoId);
+    if (!sig || sig.kind !== 'signature') {
+      throw new BadRequestException('signaturePhotoId must be a photo of kind "signature"');
+    }
+    const beforeIds = new Set(input.body.beforePhotoIds);
+    const afterIds = new Set(input.body.afterPhotoIds);
+    for (const p of photos) {
+      if (p.id === input.body.signaturePhotoId) continue;
+      const expectedKind = beforeIds.has(p.id) ? 'before' : afterIds.has(p.id) ? 'after' : null;
+      if (!expectedKind) {
+        throw new BadRequestException(`Photo ${p.id} not classified as before or after`);
+      }
+      if (p.kind !== expectedKind) {
+        throw new BadRequestException(
+          `Photo ${p.id} was uploaded as ${p.kind} but is being submitted as ${expectedKind}`,
+        );
+      }
+    }
+
+    const completion = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.completion.create({
+        data: {
+          storeId: input.storeId,
+          completedById: input.body.workerId,
+          firstName: input.body.firstName,
+          lastName: input.body.lastName,
+          signaturePhotoId: input.body.signaturePhotoId,
+          generalComments: input.body.generalComments,
+          completedAt: new Date(input.body.completedAt),
+          deviceTimezone: input.body.deviceTimezone,
+        },
+      });
+      if (Object.keys(input.body.counts).length > 0) {
+        await tx.completionCount.createMany({
+          data: Object.entries(input.body.counts).map(([countName, value]) => ({
+            completionId: created.id,
+            countName,
+            value,
+          })),
+        });
+      }
+      await tx.photo.updateMany({
+        where: { id: { in: [...beforeIds, ...afterIds] } },
+        data: { completionId: created.id },
+      });
+      await tx.storeTask.updateMany({
+        where: { storeId: input.storeId },
+        data: { currentStatus: TaskStatus.SCHEDULED_OR_COMPLETE },
+      });
+      return created;
+    });
+
+    this.logger.log(
+      `Store ${input.storeId} admin-completed by ${input.actor.id} on behalf of worker ${input.body.workerId}`,
+    );
 
     return this.toDto(completion.id);
   }

@@ -41,6 +41,7 @@ export const storeSchema = z.object({
 export type Store = z.infer<typeof storeSchema>;
 
 export const updateStoreRequestSchema = z.object({
+  storeNumber: z.string().min(1).max(50).optional(),
   storeName: z.string().min(1).max(100).optional(),
   state: z.string().max(20).optional(),
   address: z.string().max(255).optional(),
@@ -51,13 +52,24 @@ export const updateStoreRequestSchema = z.object({
   manager: z.string().max(100).optional(),
   regional: z.string().max(100).optional(),
   notes: z.string().max(2000).optional(),
+  /** Per-task initial status overrides; key = task column name, value = status. */
+  taskStatuses: z.record(z.string(), z.nativeEnum(TaskStatus)).optional(),
 });
 export type UpdateStoreRequest = z.infer<typeof updateStoreRequestSchema>;
 
-export const createStoreRequestSchema = updateStoreRequestSchema.extend({
-  storeNumber: z.string().min(1),
-  storeName: z.string().min(1),
+export const createStoreRequestSchema = z.object({
+  storeNumber: z.string().min(1).max(50),
+  storeName: z.string().min(1).max(100),
+  state: z.string().max(20).optional(),
+  address: z.string().max(255).optional(),
+  zip: z.string().max(20).optional(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
+  type: z.string().max(50).optional(),
+  manager: z.string().max(100).optional(),
+  regional: z.string().max(100).optional(),
+  notes: z.string().max(2000).optional(),
+  /** Optional per-task initial statuses. If absent, all map task columns default to needs_scheduled. */
+  taskStatuses: z.record(z.string(), z.nativeEnum(TaskStatus)).optional(),
 });
 export type CreateStoreRequest = z.infer<typeof createStoreRequestSchema>;

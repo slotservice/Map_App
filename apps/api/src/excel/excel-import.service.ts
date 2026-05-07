@@ -75,7 +75,12 @@ export class ExcelImportService {
       throw new BadRequestException('Excel file has no usable rows');
     }
 
-    const map = await this.prisma.$transaction(async (tx) => {
+    // Default Prisma interactive-transaction timeout is 5s. Importing
+    // hundreds of stores (each row = 1 store insert + N storeTask inserts)
+    // can exceed that easily under concurrent load (e.g. tests running in
+    // parallel). Bump explicitly so a 1000-row import has headroom.
+    const map = await this.prisma.$transaction(
+      async (tx) => {
       const created = await tx.map.create({
         data: {
           name: input.name,
@@ -125,7 +130,11 @@ export class ExcelImportService {
       }
 
       return created;
-    });
+      },
+      // 60s ceiling, 30s soft timeout — enough for ~thousands of rows
+      // and well clear of the realistic 161-row case under load.
+      { timeout: 60_000, maxWait: 30_000 },
+    );
 
     this.logger.log(
       `Imported map "${input.name}" (${map.id}): ${rows.length} stores, ` +

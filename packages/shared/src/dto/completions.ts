@@ -34,3 +34,13 @@ export const completeStoreRequestSchema = z.object({
   afterPhotoIds: z.array(z.string().uuid()).max(50),
 });
 export type CompleteStoreRequest = z.infer<typeof completeStoreRequestSchema>;
+
+/**
+ * Admin-only completion endpoint. Mirrors completeStoreRequestSchema but
+ * also lets the admin attribute the completion to a specific worker.
+ */
+export const adminCompleteStoreRequestSchema = completeStoreRequestSchema.extend({
+  /** Worker the completion is being attributed to (must be assigned to the map). */
+  workerId: z.string().uuid(),
+});
+export type AdminCompleteStoreRequest = z.infer<typeof adminCompleteStoreRequestSchema>;

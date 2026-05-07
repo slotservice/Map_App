@@ -7,16 +7,21 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
+  createStoreRequestSchema,
   finalizePhotoRequestSchema,
   presignUploadRequestSchema,
+  updateStoreRequestSchema,
+  type CreateStoreRequest,
   type FinalizePhotoRequest,
   type PresignUploadRequest,
   type PresignUploadResponse,
   type Store,
+  type UpdateStoreRequest,
   UserRole,
 } from '@map-app/shared';
 import { StoresService } from './stores.service.js';
@@ -78,5 +83,35 @@ export class StoresController {
   @HttpCode(HttpStatus.NO_CONTENT)
   clearPropertyImage(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.stores.clearPropertyImage(id);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Post('maps/:mapId/stores')
+  create(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('mapId', ParseUUIDPipe) mapId: string,
+    @Body(new ZodValidationPipe(createStoreRequestSchema)) body: CreateStoreRequest,
+  ): Promise<Store> {
+    return this.stores.create(actor.id, mapId, body);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Patch('stores/:id')
+  update(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateStoreRequestSchema)) body: UpdateStoreRequest,
+  ): Promise<Store> {
+    return this.stores.update(actor.id, id, body);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Delete('stores/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  softDelete(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    return this.stores.softDelete(actor.id, id);
   }
 }

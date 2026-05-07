@@ -10,3 +10,4 @@ export * from './dto/photos.js';
 export * from './dto/tag-alerts.js';
 export * from './dto/completions.js';
 export * from './dto/devices.js';
+export * from './dto/questions.js';
