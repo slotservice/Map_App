@@ -76,6 +76,124 @@ test.describe('navigation — every sidebar link loads', () => {
   }
 });
 
+test.describe('sidebar role filtering — non-admin must not see admin-only sections', () => {
+  const apiBase = (process.env.ADMIN_URL || 'http://localhost:4000').replace(/\/$/, '') + '/api/v1';
+  let mapId: string | null = null;
+
+  // Vendor needs a map assignment, otherwise the post-login redirect to
+  // /maps shows no content; we only need the sidebar to render anyway,
+  // but assign so the page is non-empty.
+  test.beforeAll(async ({ request }) => {
+    const adminLogin = await request.post(`${apiBase}/auth/login`, {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    const token = (await adminLogin.json()).tokens.accessToken;
+    const fs = await import('node:fs/promises');
+    const xlsx = await fs.readFile('/tmp/c_dilbeck.xlsx');
+    const importRes = await request.post(`${apiBase}/maps/import`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        name: `pw-sidebar-${Date.now()}`,
+        file: { name: 'c_dilbeck.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: xlsx },
+      },
+    });
+    mapId = (await importRes.json()).mapId;
+    const vendorId = (await (await request.get(`${apiBase}/users?role=vendor`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })).json())
+      .find((u: { email: string }) => u.email === 'vendor@fullcirclefm.local').id;
+    await request.post(`${apiBase}/maps/${mapId}/assignments`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { userId: vendorId, role: 'vendor' },
+    });
+  });
+
+  test.afterAll(async ({ request }) => {
+    if (!mapId) return;
+    const adminLogin = await request.post(`${apiBase}/auth/login`, {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    const token = (await adminLogin.json()).tokens.accessToken;
+    await request.delete(`${apiBase}/maps/${mapId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  });
+
+  test('vendor sees Maps + Account Settings, NOT Users section', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel('Email').fill('vendor@fullcirclefm.local');
+    await page.getByLabel('Password').fill('password123');
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.waitForURL('**/maps', { timeout: 10_000 });
+
+    // Scope all assertions to the sidebar (<aside>) so we don't collide
+    // with same-text page headings.
+    const aside = page.locator('aside');
+
+    // Section headers visible in sidebar
+    await expect(aside.getByText('Maps', { exact: true })).toBeVisible();
+    await expect(aside.getByText('Account Settings', { exact: true })).toBeVisible();
+    // Users section MUST NOT render for vendor
+    await expect(aside.getByText('Users', { exact: true })).toHaveCount(0);
+
+    // Vendor-allowed items visible
+    await expect(aside.getByRole('link', { name: 'Map list', exact: true })).toBeVisible();
+    await expect(aside.getByRole('link', { name: 'Profile', exact: true })).toBeVisible();
+    await expect(aside.getByRole('link', { name: 'Change Password', exact: true })).toBeVisible();
+    // Admin-only items must be absent
+    await expect(aside.getByRole('link', { name: 'Worker list', exact: true })).toHaveCount(0);
+    await expect(aside.getByRole('link', { name: 'Vendor list', exact: true })).toHaveCount(0);
+    await expect(aside.getByRole('link', { name: 'Viewer list', exact: true })).toHaveCount(0);
+    await expect(aside.getByRole('link', { name: 'Audit log', exact: true })).toHaveCount(0);
+  });
+});
+
+test.describe('stale localStorage AuthUser (pre-address-fields) — backwards compat', () => {
+  test('logging in fresh writes the new schema (sanity)', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(ADMIN_EMAIL);
+    await page.getByLabel('Password').fill(ADMIN_PASSWORD);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.waitForURL('**/maps', { timeout: 10_000 });
+    // localStorage must now carry the four new optional keys (even if null).
+    const cached = await page.evaluate(() => {
+      const raw = window.localStorage.getItem('mapapp.user');
+      return raw ? JSON.parse(raw) : null;
+    });
+    expect(cached).toBeTruthy();
+    expect(cached).toHaveProperty('address');
+    expect(cached).toHaveProperty('state');
+    expect(cached).toHaveProperty('zip');
+  });
+
+  test('Profile renders cleanly even when cached user has no address fields (simulated stale cache)', async ({ page }) => {
+    // Login normally, then mutate localStorage to remove the new fields,
+    // simulating a session that was created before today's deploy.
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(ADMIN_EMAIL);
+    await page.getByLabel('Password').fill(ADMIN_PASSWORD);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.waitForURL('**/maps', { timeout: 10_000 });
+
+    await page.evaluate(() => {
+      const raw = window.localStorage.getItem('mapapp.user');
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      delete obj.address;
+      delete obj.state;
+      delete obj.zip;
+      window.localStorage.setItem('mapapp.user', JSON.stringify(obj));
+    });
+
+    await page.goto('/profile');
+    await expect(page.getByRole('heading', { name: /my profile/i })).toBeVisible();
+    // No JS errors, fields just empty (which is fine).
+    await expect(page.getByLabel('Address')).toHaveValue('');
+    await expect(page.getByLabel('State')).toHaveValue('');
+    await expect(page.getByLabel('Zip')).toHaveValue('');
+  });
+});
+
 test.describe('profile self-edit (legacy parity)', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
