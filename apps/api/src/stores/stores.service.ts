@@ -277,10 +277,15 @@ export class StoresService {
         },
       });
       if (body.taskStatuses) {
+        // Only update currentStatus on edit. initialStatus is the snapshot
+        // taken at Excel import — the marker-colour state machine reads it
+        // to distinguish "imported as already-complete" from "worker
+        // completed during this visit", so overwriting it would silently
+        // change colour-machine outputs across the board.
         for (const [name, status] of Object.entries(body.taskStatuses)) {
           await tx.storeTask.update({
             where: { storeId_taskName: { storeId, taskName: name } },
-            data: { currentStatus: status, initialStatus: status },
+            data: { currentStatus: status },
           });
         }
       }

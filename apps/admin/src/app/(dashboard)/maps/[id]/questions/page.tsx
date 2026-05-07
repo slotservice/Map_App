@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import type { Question } from '@map-app/shared';
+import { UserRole, type Question } from '@map-app/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog } from '@/components/ui/dialog';
@@ -14,6 +14,7 @@ import {
   useMapQuestions,
   useUpdateQuestion,
 } from '@/lib/queries';
+import { useAuthStore } from '@/lib/auth';
 import { friendlyError } from '@/lib/friendly-error';
 
 export default function QuestionsPage() {
@@ -21,6 +22,8 @@ export default function QuestionsPage() {
   const { data: map } = useMap(mapId);
   const { data: questions, isLoading, error } = useMapQuestions(mapId);
   const remove = useDeleteQuestion(mapId);
+  const role = useAuthStore((s) => s.user?.role);
+  const isAdmin = role === UserRole.ADMIN;
 
   const [editTarget, setEditTarget] = useState<Question | 'new' | null>(null);
 
@@ -37,7 +40,7 @@ export default function QuestionsPage() {
               For map <strong>{map?.name ?? '…'}</strong>
             </p>
           </div>
-          <Button onClick={() => setEditTarget('new')}>+ Add new question</Button>
+          {isAdmin && <Button onClick={() => setEditTarget('new')}>+ Add new question</Button>}
         </div>
       </header>
 
@@ -59,7 +62,7 @@ export default function QuestionsPage() {
               </th>
               <th className="py-2 pr-4 font-medium">Question</th>
               <th className="py-2 pr-4 font-medium">Created</th>
-              <th className="py-2 pr-4 font-medium">Actions</th>
+              {isAdmin && <th className="py-2 pr-4 font-medium">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -70,34 +73,36 @@ export default function QuestionsPage() {
                 <td className="py-3 pr-4 text-muted-foreground">
                   {new Date(q.createdAt).toLocaleDateString()}
                 </td>
-                <td className="py-3 pr-4">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditTarget(q)}
-                      className="rounded bg-cyan-600 px-2 py-1 text-xs font-medium text-white hover:bg-cyan-700"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Delete "${q.title}"?`)) {
-                          remove.mutate(q.id);
-                        }
-                      }}
-                      disabled={remove.isPending}
-                      className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
+                {isAdmin && (
+                  <td className="py-3 pr-4">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditTarget(q)}
+                        className="rounded bg-cyan-600 px-2 py-1 text-xs font-medium text-white hover:bg-cyan-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Delete "${q.title}"?`)) {
+                            remove.mutate(q.id);
+                          }
+                        }}
+                        disabled={remove.isPending}
+                        className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       )}
 
-      {editTarget !== null && (
+      {editTarget !== null && isAdmin && (
         <QuestionDialog
           mapId={mapId}
           target={editTarget}
