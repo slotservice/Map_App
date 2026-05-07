@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface AuditEntry {
   id: string;
@@ -58,26 +59,26 @@ export default function AuditLogPage() {
         <div className="flex flex-wrap items-end gap-2 text-sm">
           <label className="flex flex-col">
             <span className="text-xs text-muted-foreground">From</span>
-            <input
+            <Input
               type="datetime-local"
               value={from}
               onChange={(e) => {
                 setFrom(e.target.value);
                 resetPage();
               }}
-              className="rounded-md border px-2 py-1"
+              className="h-8 px-2 py-1"
             />
           </label>
           <label className="flex flex-col">
             <span className="text-xs text-muted-foreground">To</span>
-            <input
+            <Input
               type="datetime-local"
               value={to}
               onChange={(e) => {
                 setTo(e.target.value);
                 resetPage();
               }}
-              className="rounded-md border px-2 py-1"
+              className="h-8 px-2 py-1"
             />
           </label>
           {(from || to) && (

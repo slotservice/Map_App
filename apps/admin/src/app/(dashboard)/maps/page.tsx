@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { CreateMapDialog } from '@/components/create-map-dialog';
 import { EditMapDialog } from '@/components/edit-map-dialog';
 import { useDeleteMap, useMaps } from '@/lib/queries';
@@ -38,7 +39,7 @@ export default function MapsPage() {
       <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Maps</h1>
         <div className="flex items-center gap-3">
-          <input
+          <Input
             type="search"
             placeholder="Search maps…"
             value={search}
@@ -46,7 +47,7 @@ export default function MapsPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-56 rounded-md border px-3 py-2 text-sm"
+            className="w-56"
             aria-label="Search maps"
           />
           {isAdmin && <Button onClick={() => setCreateOpen(true)}>+ Create map</Button>}
