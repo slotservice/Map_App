@@ -7,8 +7,11 @@ import { Button } from '@/components/ui/button';
 import { PropertyImageDialog } from '@/components/property-image-dialog';
 import { StoreEditDialog } from '@/components/store-edit-dialog';
 import { AdminCompleteDialog } from '@/components/admin-complete-dialog';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useDeleteStore, useMap, useMapStores } from '@/lib/queries';
 import { useAuthStore } from '@/lib/auth';
+import { api } from '@/lib/api';
+import { friendlyError } from '@/lib/friendly-error';
 import { UserRole, type MarkerColor, type Store } from '@map-app/shared';
 
 const COLOR_LABEL: Record<MarkerColor, string> = {
@@ -29,6 +32,7 @@ type DialogMode =
   | { kind: 'create-store' }
   | { kind: 'edit-store'; store: Store }
   | { kind: 'complete-store'; store: Store }
+  | { kind: 'delete-store'; store: Store }
   | { kind: 'property'; store: Store };
 
 export default function MapDetailPage() {
@@ -39,11 +43,35 @@ export default function MapDetailPage() {
   const isAdmin = role === UserRole.ADMIN;
   const deleteStore = useDeleteStore(id);
   const [dialog, setDialog] = useState<DialogMode | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   if (mapLoading) return <p className="text-sm text-muted-foreground">Loading map…</p>;
   if (!map) return <p className="text-sm text-red-600">Map not found.</p>;
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  /**
+   * Excel download has to go through the authenticated `api` client (so
+   * the JWT bearer is attached) and stream the response as a blob —
+   * a plain `<a href>` opens a new tab without auth and the API correctly
+   * rejects it as 401.
+   */
+  async function downloadExcel() {
+    setDownloading(true);
+    try {
+      const blob = await api.get(`maps/${id}/excel`).blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${map?.name || 'map'}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      window.alert(`Download failed: ${await friendlyError(err)}`);
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <section className="space-y-6">
@@ -87,9 +115,9 @@ export default function MapDetailPage() {
         <Link href={`/maps/${id}/tag-alert-log`}>
           <Button variant="secondary">Tag-alert log</Button>
         </Link>
-        <a href={`${apiBase}/api/v1/maps/${id}/excel`} target="_blank" rel="noreferrer">
-          <Button variant="secondary">Download Excel</Button>
-        </a>
+        <Button variant="secondary" onClick={downloadExcel} disabled={downloading}>
+          {downloading ? 'Downloading…' : 'Download Excel'}
+        </Button>
       </nav>
 
       <section>
@@ -199,15 +227,7 @@ export default function MapDetailPage() {
                         )}
                         {isAdmin && (
                           <button
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Soft-delete store #${s.storeNumber} ${s.storeName}?`,
-                                )
-                              ) {
-                                deleteStore.mutate(s.id);
-                              }
-                            }}
+                            onClick={() => setDialog({ kind: 'delete-store', store: s })}
                             disabled={deleteStore.isPending}
                             className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                           >
@@ -260,6 +280,16 @@ export default function MapDetailPage() {
           onOpenChange={(o) => !o && setDialog(null)}
           store={dialog.store}
           map={map}
+        />
+      )}
+      {dialog?.kind === 'delete-store' && (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => !o && setDialog(null)}
+          title={`Delete store #${dialog.store.storeNumber} ${dialog.store.storeName}?`}
+          description="The store is soft-deleted (the row hides from the list, completion history is kept)."
+          confirmLabel="Delete store"
+          onConfirm={() => deleteStore.mutateAsync(dialog.store.id)}
         />
       )}
     </section>

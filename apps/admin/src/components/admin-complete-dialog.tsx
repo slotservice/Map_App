@@ -178,8 +178,10 @@ export function AdminCompleteDialog({
               completion.
             </p>
           </div>
-          <div className="flex justify-end">
-            <Button onClick={close}>OK</Button>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={close}>
+              Close
+            </Button>
           </div>
         </div>
       ) : (

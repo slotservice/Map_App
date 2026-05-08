@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { UserRole } from '@map-app/shared';
+import { type User, UserRole } from '@map-app/shared';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog } from './ui/dialog';
+import { ConfirmDialog } from './confirm-dialog';
 import {
   useCreateUser,
   useDeleteUser,
@@ -21,6 +22,7 @@ import { friendlyError } from '@/lib/friendly-error';
 export function UserList({ role, label }: { role: UserRole; label: string }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<{ id: string; email: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const { data, isLoading, error } = useUsers(role);
   const update = useUpdateUser();
   const remove = useDeleteUser();
@@ -101,9 +103,7 @@ export function UserList({ role, label }: { role: UserRole; label: string }) {
                       {u.status === 'active' ? 'Block' : 'Unblock'}
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Soft-delete ${u.email}?`)) remove.mutate(u.id);
-                      }}
+                      onClick={() => setDeleteTarget(u)}
                       className="text-red-600 hover:underline"
                     >
                       Delete
@@ -124,6 +124,16 @@ export function UserList({ role, label }: { role: UserRole; label: string }) {
       />
       {resetTarget && (
         <ResetPasswordDialog target={resetTarget} onClose={() => setResetTarget(null)} />
+      )}
+      {deleteTarget && (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => !o && setDeleteTarget(null)}
+          title={`Delete ${deleteTarget.email}?`}
+          description={`The ${label.toLowerCase()} is soft-deleted and blocked from logging in. Their assignments and history are kept.`}
+          confirmLabel={`Delete ${label.toLowerCase()}`}
+          onConfirm={() => remove.mutateAsync(deleteTarget.id)}
+        />
       )}
     </section>
   );

@@ -89,10 +89,20 @@ export function MapMarkerView({
           ? `<a href="/maps/${mapId}/stores/${store.id}/completion" style="color:#ed7332;text-decoration:underline">View completion</a>`
           : '';
 
+      // Avoid duplicating the state when it's already in the address text
+      // (e.g., "521 S MAIN ST RANKIN ILLINOIS" + state column "ILLINOIS" =>
+      // would render "RANKIN ILLINOIS, ILLINOIS"). Compare case-insensitive.
+      const addr = store.address ?? '';
+      const st = store.state ?? '';
+      const stateAlreadyInAddress =
+        st.length > 0 && addr.toUpperCase().includes(st.toUpperCase());
+      const stateSuffix =
+        st.length > 0 && !stateAlreadyInAddress ? ', ' + escapeHtml(st) : '';
+
       const popupHtml = `
         <div style="font-size:13px;min-width:180px;">
           <div style="font-weight:600;margin-bottom:2px;">#${escapeHtml(store.storeNumber)} ${escapeHtml(store.storeName)}</div>
-          ${store.address ? `<div style="color:#6b7280;margin-bottom:4px;">${escapeHtml(store.address)}${store.state ? ', ' + escapeHtml(store.state) : ''}</div>` : ''}
+          ${addr ? `<div style="color:#6b7280;margin-bottom:4px;">${escapeHtml(addr)}${stateSuffix}</div>` : ''}
           <div style="display:inline-block;background:${color};color:#fff;font-size:11px;padding:1px 6px;border-radius:4px;margin-bottom:4px;">${COLOR_LABEL[store.markerColor]}</div>
           ${completionLink ? `<div>${completionLink}</div>` : ''}
         </div>

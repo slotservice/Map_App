@@ -600,18 +600,31 @@ test.describe('map detail — store CRUD + manual complete dialogs (legacy parit
     await expect(page.getByRole('heading', { name: /manual complete/i })).toBeVisible();
   });
 
-  test('per-row Delete button asks for confirm', async ({ page }) => {
+  test('per-row Delete button opens custom confirm modal (not native window.confirm)', async ({ page }) => {
     await page.goto(`/maps/${createdMapId}`);
-    // Wait for at least one Delete button to exist before counting.
+    // Wait for at least one Delete button to exist.
     await expect(page.getByRole('button', { name: /^Delete$/ }).first()).toBeVisible({
       timeout: 10_000,
     });
-    // Capture the confirm() prompt and dismiss it (don't actually delete during the test).
-    page.on('dialog', (dialog) => dialog.dismiss());
+    // Click — should open our custom ConfirmDialog (not a browser-native
+    // window.confirm). If the legacy native dialog fires we'd see this
+    // listener trigger, which we treat as a regression.
+    let nativeDialogFired = false;
+    page.on('dialog', () => {
+      nativeDialogFired = true;
+    });
     const before = await page.getByRole('button', { name: /^Delete$/ }).count();
     await page.getByRole('button', { name: /^Delete$/ }).first().click();
-    // Row count unchanged because we dismissed.
+    // Custom modal should be visible with a Cancel button + a "Delete store" button.
+    await expect(page.getByRole('heading', { name: /^Delete store #/i })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByRole('heading', { name: /^Delete store #/i })).toHaveCount(0);
+    // Row count unchanged.
     await expect(page.getByRole('button', { name: /^Delete$/ })).toHaveCount(before);
+    expect(nativeDialogFired).toBe(false);
   });
 });
 
@@ -670,13 +683,22 @@ test.describe('questions page (legacy parity)', () => {
     // Dialog closes, table shows the new title.
     await expect(page.getByText(title)).toBeVisible({ timeout: 5000 });
 
-    // Delete it (capture confirm)
-    page.on('dialog', (dialog) => dialog.accept());
+    // Delete it via the custom ConfirmDialog (not a browser-native confirm).
+    let nativeDialogFired = false;
+    page.on('dialog', () => {
+      nativeDialogFired = true;
+    });
     await page
       .locator('tr', { has: page.getByText(title) })
       .getByRole('button', { name: /^delete$/i })
       .click();
+    // Custom confirm modal opens — click "Delete question" to confirm.
+    await expect(page.getByRole('heading', { name: new RegExp(`Delete "${title}"`, 'i') })).toBeVisible({
+      timeout: 5000,
+    });
+    await page.getByRole('button', { name: /^delete question$/i }).click();
     await expect(page.getByText(title)).toHaveCount(0);
+    expect(nativeDialogFired).toBe(false);
   });
 });
 

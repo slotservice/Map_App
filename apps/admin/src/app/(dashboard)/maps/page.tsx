@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CreateMapDialog } from '@/components/create-map-dialog';
 import { EditMapDialog } from '@/components/edit-map-dialog';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useDeleteMap, useMaps } from '@/lib/queries';
 import { UserRole, type MapSummary } from '@map-app/shared';
 import { useAuthStore } from '@/lib/auth';
@@ -16,6 +17,7 @@ const PAGE_SIZE = 25;
 export default function MapsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<MapSummary | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MapSummary | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const { data, isLoading, error } = useMaps();
@@ -138,13 +140,7 @@ export default function MapsPage() {
                           label="Edit"
                         />
                         <ActionButton
-                          onClick={() => {
-                            if (
-                              window.confirm(`Delete "${m.name}"? Soft-delete (reversible).`)
-                            ) {
-                              deleteMap.mutate(m.id);
-                            }
-                          }}
+                          onClick={() => setDeleteTarget(m)}
                           variant="danger"
                           label="Delete"
                           disabled={deleteMap.isPending}
@@ -190,6 +186,16 @@ export default function MapsPage() {
           onOpenChange={(o) => !o && setEditTarget(null)}
           mapId={editTarget.id}
           currentName={editTarget.name}
+        />
+      )}
+      {deleteTarget && (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => !o && setDeleteTarget(null)}
+          title={`Delete "${deleteTarget.name}"?`}
+          description="The map is soft-deleted and can be restored — but it disappears from the list right away."
+          confirmLabel="Delete map"
+          onConfirm={() => deleteMap.mutateAsync(deleteTarget.id)}
         />
       )}
     </section>

@@ -7,6 +7,7 @@ import { UserRole, type Question } from '@map-app/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
   useCreateQuestion,
   useDeleteQuestion,
@@ -26,6 +27,7 @@ export default function QuestionsPage() {
   const isAdmin = role === UserRole.ADMIN;
 
   const [editTarget, setEditTarget] = useState<Question | 'new' | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Question | null>(null);
 
   return (
     <section className="space-y-4">
@@ -83,11 +85,7 @@ export default function QuestionsPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm(`Delete "${q.title}"?`)) {
-                            remove.mutate(q.id);
-                          }
-                        }}
+                        onClick={() => setDeleteTarget(q)}
                         disabled={remove.isPending}
                         className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                       >
@@ -107,6 +105,16 @@ export default function QuestionsPage() {
           mapId={mapId}
           target={editTarget}
           onClose={() => setEditTarget(null)}
+        />
+      )}
+      {deleteTarget && isAdmin && (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => !o && setDeleteTarget(null)}
+          title={`Delete "${deleteTarget.title}"?`}
+          description="The question is removed from this map's list."
+          confirmLabel="Delete question"
+          onConfirm={() => remove.mutateAsync(deleteTarget.id)}
         />
       )}
     </section>
