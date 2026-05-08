@@ -35,6 +35,13 @@ TRUNCATE audit_log;
 
 DELETE FROM outbox_items WHERE status IN ('failed', 'done');
 
+-- Drop unfinalized photo rows on STILL-ACTIVE stores. These accumulate
+-- when a presign succeeded but the PUT or finalize never happened (e.g.
+-- failed property-image upload from a flaky network or pre-fix HTTPS
+-- bug). They never become user-visible — Photo.url isn't shown until
+-- finalized — but they show up as noise in audit / debugging.
+DELETE FROM photos WHERE finalized_at IS NULL;
+
 COMMIT;
 
 \echo '---'
