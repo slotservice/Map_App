@@ -91,6 +91,9 @@ test.describe('sidebar role filtering — non-admin must not see admin-only sect
     const fs = await import('node:fs/promises');
     const xlsx = await fs.readFile('/tmp/c_dilbeck.xlsx');
     const importRes = await request.post(`${apiBase}/maps/import`, {
+      // 161-row Excel import can exceed Playwright's 10s default under
+      // concurrent test load. The API itself uses a 60s Prisma tx timeout.
+      timeout: 60_000,
       headers: { Authorization: `Bearer ${token}` },
       multipart: {
         name: `pw-sidebar-${Date.now()}`,
@@ -238,6 +241,9 @@ test.describe('maps list polish (search + pagination)', () => {
     const fs = await import('node:fs/promises');
     const xlsx = await fs.readFile('/tmp/c_dilbeck.xlsx');
     const importRes = await request.post(`${apiBase}/maps/import`, {
+      // 161-row Excel import can exceed Playwright's 10s default under
+      // concurrent test load. The API itself uses a 60s Prisma tx timeout.
+      timeout: 60_000,
       headers: { Authorization: `Bearer ${token}` },
       multipart: {
         name: mapName,
@@ -378,6 +384,9 @@ test.describe('map list — per-row action buttons (legacy parity)', () => {
     const fs = await import('node:fs/promises');
     const xlsx = await fs.readFile('/tmp/c_dilbeck.xlsx');
     const importRes = await request.post(`${apiBase}/maps/import`, {
+      // 161-row Excel import can exceed Playwright's 10s default under
+      // concurrent test load. The API itself uses a 60s Prisma tx timeout.
+      timeout: 60_000,
       headers: { Authorization: `Bearer ${token}` },
       multipart: {
         name: mapName,
@@ -459,6 +468,9 @@ test.describe('map view — Leaflet marker page', () => {
     const fs = await import('node:fs/promises');
     const xlsx = await fs.readFile('/tmp/c_dilbeck.xlsx');
     const importRes = await request.post(`${apiBase}/maps/import`, {
+      // 161-row Excel import can exceed Playwright's 10s default under
+      // concurrent test load. The API itself uses a 60s Prisma tx timeout.
+      timeout: 60_000,
       headers: { Authorization: `Bearer ${token}` },
       multipart: {
         name: mapName,
@@ -547,6 +559,9 @@ test.describe('map detail — store CRUD + manual complete dialogs (legacy parit
     const fs = await import('node:fs/promises');
     const xlsx = await fs.readFile('/tmp/c_dilbeck.xlsx');
     const importRes = await request.post(`${apiBase}/maps/import`, {
+      // 161-row Excel import can exceed Playwright's 10s default under
+      // concurrent test load. The API itself uses a 60s Prisma tx timeout.
+      timeout: 60_000,
       headers: { Authorization: `Bearer ${token}` },
       multipart: {
         name: mapName,
@@ -641,6 +656,9 @@ test.describe('questions page (legacy parity)', () => {
     const fs = await import('node:fs/promises');
     const xlsx = await fs.readFile('/tmp/c_dilbeck.xlsx');
     const importRes = await request.post(`${apiBase}/maps/import`, {
+      // 161-row Excel import can exceed Playwright's 10s default under
+      // concurrent test load. The API itself uses a 60s Prisma tx timeout.
+      timeout: 60_000,
       headers: { Authorization: `Bearer ${token}` },
       multipart: {
         name: mapName,
@@ -715,6 +733,9 @@ test.describe('map detail sub-pages render (admin)', () => {
     const fs = await import('node:fs/promises');
     const xlsx = await fs.readFile('/tmp/c_dilbeck.xlsx');
     const importRes = await request.post(`${apiBase}/maps/import`, {
+      // 161-row Excel import can exceed Playwright's 10s default under
+      // concurrent test load. The API itself uses a 60s Prisma tx timeout.
+      timeout: 60_000,
       headers: { Authorization: `Bearer ${token}` },
       multipart: {
         name: mapName,

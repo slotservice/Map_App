@@ -5,6 +5,7 @@ import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { api } from '@/lib/api';
+import { sha256Hex } from '@/lib/sha256';
 import { useQueryClient } from '@tanstack/react-query';
 import type { PresignUploadResponse } from '@map-app/shared';
 
@@ -64,10 +65,7 @@ export function PropertyImageDialog({
       }
 
       const buf = await file.arrayBuffer();
-      const sha = await crypto.subtle.digest('SHA-256', buf);
-      const hex = Array.from(new Uint8Array(sha))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
+      const hex = await sha256Hex(buf);
 
       await api.post(`stores/${storeId}/property-image/${presign.photoId}/finalize`, {
         json: { sha256: hex },

@@ -1,11 +1,13 @@
 import { api } from './api';
+import { sha256Hex } from './sha256';
 import type { PhotoKind, PresignUploadResponse } from '@map-app/shared';
 
 /**
  * Upload a single photo to a store, mirroring the mobile worker flow:
  *   1. presign  → POST /stores/:id/photos
  *   2. PUT to S3 with the returned signed URL + headers
- *   3. compute SHA-256 of the bytes (browser crypto.subtle)
+ *   3. compute SHA-256 of the bytes (Web Crypto preferred; pure-JS fallback
+ *      for plain-HTTP demo URLs where window.crypto.subtle is undefined)
  *   4. finalize → POST /photos/:id/finalize { sha256 }
  *
  * Throws on any step that fails. Returns the persisted photo id once
@@ -39,10 +41,7 @@ export async function uploadStorePhoto(
     throw new Error(`Photo upload to storage failed (HTTP ${putRes.status})`);
   }
 
-  const digest = await crypto.subtle.digest('SHA-256', buf);
-  const sha256 = Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  const sha256 = await sha256Hex(buf);
 
   await api.post(`photos/${presign.photoId}/finalize`, { json: { sha256 } });
 
